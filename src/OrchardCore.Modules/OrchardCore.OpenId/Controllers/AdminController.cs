@@ -121,21 +121,25 @@ namespace OrchardCore.OpenId.Controllers
                 return NotFound();
             }
 
-            var permissions = await _applicationManager.GetPermissionsAsync(application);
-
             var model = new EditOpenIdApplicationViewModel
             {
-                AllowAuthorizationCodeFlow = permissions.Contains(OpenIddictConstants.Permissions.GrantTypes.AuthorizationCode),
-                AllowClientCredentialsFlow = permissions.Contains(OpenIddictConstants.Permissions.GrantTypes.ClientCredentials),
-                AllowImplicitFlow = permissions.Contains(OpenIddictConstants.Permissions.GrantTypes.Implicit),
-                AllowPasswordFlow = permissions.Contains(OpenIddictConstants.Permissions.GrantTypes.Password),
-                AllowRefreshTokenFlow = permissions.Contains(OpenIddictConstants.Permissions.GrantTypes.RefreshToken),
+                AllowAuthorizationCodeFlow = await _applicationManager.HasPermissionAsync(
+                    application, OpenIddictConstants.Permissions.GrantTypes.AuthorizationCode),
+                AllowClientCredentialsFlow = await _applicationManager.HasPermissionAsync(
+                    application, OpenIddictConstants.Permissions.GrantTypes.ClientCredentials),
+                AllowImplicitFlow = await _applicationManager.HasPermissionAsync(
+                    application, OpenIddictConstants.Permissions.GrantTypes.Implicit),
+                AllowPasswordFlow = await _applicationManager.HasPermissionAsync(
+                    application, OpenIddictConstants.Permissions.GrantTypes.Password),
+                AllowRefreshTokenFlow = await _applicationManager.HasPermissionAsync(
+                    application, OpenIddictConstants.Permissions.GrantTypes.RefreshToken),
+
                 ClientId = await _applicationManager.GetClientIdAsync(application),
                 DisplayName = await _applicationManager.GetDisplayNameAsync(application),
                 Id = await _applicationManager.GetPhysicalIdAsync(application),
                 LogoutRedirectUri = (await _applicationManager.GetPostLogoutRedirectUrisAsync(application)).FirstOrDefault(),
                 RedirectUri = (await _applicationManager.GetRedirectUrisAsync(application)).FirstOrDefault(),
-                SkipConsent = !await _applicationManager.IsConsentRequiredAsync(application),
+                SkipConsent = string.Equals(await _applicationManager.GetConsentTypeAsync(application), OpenIddictConstants.ConsentTypes.Implicit),
                 Type = (ClientType) Enum.Parse(typeof(ClientType), await _applicationManager.GetClientTypeAsync(application), ignoreCase: true)
             };
 
@@ -171,6 +175,12 @@ namespace OrchardCore.OpenId.Controllers
                 await ValidateClientSecretAsync(user, model.ClientSecret, (key, message) => ModelState.AddModelError(key, message));
             }
 
+            if (!model.AllowAuthorizationCodeFlow && !model.AllowClientCredentialsFlow &&
+                !model.AllowImplicitFlow && !model.AllowPasswordFlow && !model.AllowRefreshTokenFlow)
+            {
+                ModelState.AddModelError(string.Empty, "At least one flow must be enabled.");
+            }
+
             IOpenIdApplication application = null;
 
             if (ModelState.IsValid)
@@ -185,6 +195,14 @@ namespace OrchardCore.OpenId.Controllers
                     await _applicationManager.IsPublicAsync(application))
                 {
                     ModelState.AddModelError(nameof(model.UpdateClientSecret), T["Setting a new client secret is required"]);
+                }
+
+                var other = await _applicationManager.FindByClientIdAsync(model.ClientId);
+                if (other != null && !string.Equals(
+                    await _applicationManager.GetIdAsync(other),
+                    await _applicationManager.GetIdAsync(application), StringComparison.Ordinal))
+                {
+                    ModelState.AddModelError(nameof(model.ClientId), T["The client identifier is already taken by another application."]);
                 }
             }
 
@@ -253,6 +271,17 @@ namespace OrchardCore.OpenId.Controllers
             else if (model.Type == ClientType.Public && !string.IsNullOrEmpty(model.ClientSecret))
             {
                 ModelState.AddModelError(nameof(model.ClientSecret), T["No client secret can be set for public applications."]);
+            }
+
+            if (!model.AllowAuthorizationCodeFlow && !model.AllowClientCredentialsFlow &&
+                !model.AllowImplicitFlow && !model.AllowPasswordFlow && !model.AllowRefreshTokenFlow)
+            {
+                ModelState.AddModelError(string.Empty, "At least one flow must be enabled.");
+            }
+
+            if (await _applicationManager.FindByClientIdAsync(model.ClientId) != null)
+            {
+                ModelState.AddModelError(nameof(model.ClientId), T["The client identifier is already taken by another application."]);
             }
 
             if (!ModelState.IsValid)

@@ -85,14 +85,15 @@ Here is an example for creating a SQL query from a Queries recipe step:
 
 # Liquid templates
 
+You can access queries from liquid views and templates by using the `Queries` property. Queries are accessed by name, for example `Queries.RecentBlogPosts`.
+
 ## query
 
-The `query` filter provides a way to access named queries.
-To access a named query, use the name as the input.
+The `query` filter provides a way to execute queries. 
 
 
 ```
-{% assign recentBlogPosts = "RecentBlogPosts" | query %}
+{% assign recentBlogPosts = Queries.RecentBlogPosts | query %}
 {% for item in recentBlogPosts %}
 {{ item | display_text }}
 {% endfor %}
@@ -100,6 +101,14 @@ To access a named query, use the name as the input.
 
 The example above will iterate over all the results of the query name `RecentBlogPosts` and display the text representing the content item.
 Any available property on the results of the queries can be used. This example assumes the results will be content items.
+
+### Parameters
+
+The `query` filter allows you to pass in parameters to your paramterized queries. For example, a query called `ContentItems` that has two parameters (`contentType` and `limit`) can be called like this:
+
+```
+{% assign fiveBlogPosts = Queries.ContentItems | query: contentType: "BlogPost", limit: 5 %}
+```
 
 # Razor Helpers
 
