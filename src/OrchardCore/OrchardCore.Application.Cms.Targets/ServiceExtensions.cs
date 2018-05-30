@@ -13,12 +13,13 @@ namespace Microsoft.Extensions.DependencyInjection
             services.AddManifestDefinition("theme");
             services.AddSitesFolder();
             services.AddCommands();
+            services.AddAntiforgery();
             services.AddAuthentication();
             services.AddModules(modules => 
             {
                 modules.WithDefaultFeatures(
-                    "OrchardCore.Mvc", "OrchardCore.Settings", "OrchardCore.Setup",
-                    "OrchardCore.Recipes", "OrchardCore.Commons");
+                    "OrchardCore.Antiforgery", "OrchardCore.Mvc", "OrchardCore.Settings",
+                    "OrchardCore.Setup", "OrchardCore.Recipes", "OrchardCore.Commons");
             });
 
             return services;
