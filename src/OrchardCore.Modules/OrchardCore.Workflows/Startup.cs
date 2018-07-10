@@ -26,7 +26,6 @@ namespace OrchardCore.Workflows
     {
         public override void ConfigureServices(IServiceCollection services)
         {
-            services.AddDataProtection();
             services.AddIdGeneration();
             services.AddSingleton<IWorkflowTypeIdGenerator, WorkflowTypeIdGenerator>();
             services.AddSingleton<IWorkflowIdGenerator, WorkflowIdGenerator>();
@@ -49,6 +48,7 @@ namespace OrchardCore.Workflows
             services.AddScoped<IWorkflowExpressionEvaluator, LiquidWorkflowExpressionEvaluator>();
             services.AddScoped<IWorkflowScriptEvaluator, JavaScriptWorkflowScriptEvaluator>();
 
+            services.AddActivity<Activity, ActivityMetadataDisplay>();
             services.AddActivity<NotifyTask, NotifyTaskDisplay>();
             services.AddActivity<SetPropertyTask, SetVariableTaskDisplay>();
             services.AddActivity<SetOutputTask, SetOutputTaskDisplay>();

@@ -6,7 +6,6 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Localization;
 using OrchardCore.Data;
 using OrchardCore.Environment.Shell;
-using OrchardCore.Modules;
 using OrchardCore.Recipes.Models;
 using OrchardCore.Setup.Services;
 using OrchardCore.Setup.ViewModels;
@@ -17,21 +16,17 @@ namespace OrchardCore.Setup.Controllers
     {
         private readonly ISetupService _setupService;
         private readonly ShellSettings _shellSettings;
-        private const string DefaultRecipe = "Default";
         private readonly IEnumerable<DatabaseProvider> _databaseProviders;
-        private readonly IClock _clock;
 
         public SetupController(
             ISetupService setupService,
             ShellSettings shellSettings,
             IEnumerable<DatabaseProvider> databaseProviders,
-            IStringLocalizer<SetupController> t,
-            IClock clock)
+            IStringLocalizer<SetupController> t)
         {
             _setupService = setupService;
             _shellSettings = shellSettings;
             _databaseProviders = databaseProviders;
-            _clock = clock;
 
             T = t;
         }
@@ -52,23 +47,25 @@ namespace OrchardCore.Setup.Controllers
 
             if (!String.IsNullOrEmpty(_shellSettings.ConnectionString))
             {
-                model.ConnectionStringPreset = true;
+                model.DatabaseConfigurationPreset = true;
                 model.ConnectionString = _shellSettings.ConnectionString;
             }
 
             if (!String.IsNullOrEmpty(_shellSettings.DatabaseProvider))
             {
-                model.DatabaseProviderPreset = true;
+                model.DatabaseConfigurationPreset = true;
                 model.DatabaseProvider = _shellSettings.DatabaseProvider;
+            }
+            else
+            {
+                model.DatabaseProvider = model.DatabaseProviders.FirstOrDefault(p => p.IsDefault)?.Value;
             }
 
             if (!String.IsNullOrEmpty(_shellSettings.TablePrefix))
             {
-                model.TablePrefixPreset = true;
+                model.DatabaseConfigurationPreset = true;
                 model.TablePrefix = _shellSettings.TablePrefix;
             }
-
-            model.TimeZones = _clock.GetTimeZones();
 
             return View(model);
         }
@@ -81,9 +78,12 @@ namespace OrchardCore.Setup.Controllers
 
             var selectedProvider = model.DatabaseProviders.FirstOrDefault(x => x.Value == model.DatabaseProvider);
 
-            if (selectedProvider != null && selectedProvider.HasConnectionString && String.IsNullOrWhiteSpace(model.ConnectionString))
+            if (!model.DatabaseConfigurationPreset)
             {
-                ModelState.AddModelError(nameof(model.ConnectionString), T["The connection string is mandatory for this provider."]);
+                if (selectedProvider != null && selectedProvider.HasConnectionString && String.IsNullOrWhiteSpace(model.ConnectionString))
+                {
+                    ModelState.AddModelError(nameof(model.ConnectionString), T["The connection string is mandatory for this provider."]);
+                }
             }
 
             if (String.IsNullOrEmpty(model.Password))
@@ -103,26 +103,6 @@ namespace OrchardCore.Setup.Controllers
                 ModelState.AddModelError(nameof(model.RecipeName), T["Invalid recipe."]);
             }
 
-            if (!String.IsNullOrEmpty(_shellSettings.ConnectionString))
-            {
-                model.ConnectionStringPreset = true;
-                model.ConnectionString = _shellSettings.ConnectionString;
-            }
-
-            if (!String.IsNullOrEmpty(_shellSettings.DatabaseProvider))
-            {
-                model.DatabaseProviderPreset = true;
-                model.DatabaseProvider = _shellSettings.DatabaseProvider;
-            }
-
-            if (!String.IsNullOrEmpty(_shellSettings.TablePrefix))
-            {
-                model.TablePrefixPreset = true;
-                model.TablePrefix = _shellSettings.TablePrefix;
-            }
-
-            model.TimeZones = _clock.GetTimeZones();
-
             if (!ModelState.IsValid)
             {
                 return View(model);
@@ -140,18 +120,16 @@ namespace OrchardCore.Setup.Controllers
                 SiteTimeZone = model.SiteTimeZone
             };
 
-            if (!model.DatabaseProviderPreset)
+            if (model.DatabaseConfigurationPreset)
+            {
+                setupContext.DatabaseProvider = _shellSettings.DatabaseProvider;
+                setupContext.DatabaseConnectionString = _shellSettings.ConnectionString;
+                setupContext.DatabaseTablePrefix = _shellSettings.TablePrefix;
+            }
+            else
             {
                 setupContext.DatabaseProvider = model.DatabaseProvider;
-            }
-
-            if (!model.ConnectionStringPreset)
-            {
                 setupContext.DatabaseConnectionString = model.ConnectionString;
-            }
-
-            if (!model.TablePrefixPreset)
-            {
                 setupContext.DatabaseTablePrefix = model.TablePrefix;
             }
 
