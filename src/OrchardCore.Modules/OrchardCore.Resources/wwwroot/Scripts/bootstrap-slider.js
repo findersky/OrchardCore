@@ -4,7 +4,7 @@
 */
 
 /*! =======================================================
-                      VERSION  10.3.4              
+                      VERSION  10.4.1              
 ========================================================= */
 "use strict";
 
@@ -222,6 +222,7 @@ var windowIsDefined = (typeof window === "undefined" ? "undefined" : _typeof(win
  	**************************************************/
 
 	(function ($) {
+		var autoRegisterNamespace = void 0;
 
 		var ErrorMsgs = {
 			formatInvalidInputErrorMsg: function formatInvalidInputErrorMsg(input) {
@@ -369,6 +370,9 @@ var windowIsDefined = (typeof window === "undefined" ? "undefined" : _typeof(win
    	**************************************************/
 			options = options ? options : {};
 			var optionTypes = Object.keys(this.defaultOptions);
+
+			var isMinSet = options.hasOwnProperty('min');
+			var isMaxSet = options.hasOwnProperty('max');
 
 			for (var i = 0; i < optionTypes.length; i++) {
 				var optName = optionTypes[i];
@@ -683,8 +687,12 @@ var windowIsDefined = (typeof window === "undefined" ? "undefined" : _typeof(win
 			this._setTooltipPosition();
 			/* In case ticks are specified, overwrite the min and max bounds */
 			if (Array.isArray(this.options.ticks) && this.options.ticks.length > 0) {
-				this.options.max = Math.max.apply(Math, this.options.ticks);
-				this.options.min = Math.min.apply(Math, this.options.ticks);
+				if (!isMaxSet) {
+					this.options.max = Math.max.apply(Math, this.options.ticks);
+				}
+				if (!isMinSet) {
+					this.options.min = Math.min.apply(Math, this.options.ticks);
+				}
 			}
 
 			if (Array.isArray(this.options.value)) {
@@ -956,7 +964,10 @@ var windowIsDefined = (typeof window === "undefined" ? "undefined" : _typeof(win
 				// Remove JQuery handlers/data
 				if ($) {
 					this._unbindJQueryEventHandlers();
-					this.$element.removeData('slider');
+					if (autoRegisterNamespace === NAMESPACE_MAIN) {
+						this.$element.removeData(autoRegisterNamespace);
+					}
+					this.$element.removeData(NAMESPACE_ALTERNATE);
 				}
 			},
 
@@ -1025,7 +1036,12 @@ var windowIsDefined = (typeof window === "undefined" ? "undefined" : _typeof(win
 				createNewSlider.call(this, this.element, this.options);
 				if ($) {
 					// Bind new instance of slider to the element
-					$.data(this.element, 'slider', this);
+					if (autoRegisterNamespace === NAMESPACE_MAIN) {
+						$.data(this.element, NAMESPACE_MAIN, this);
+						$.data(this.element, NAMESPACE_ALTERNATE, this);
+					} else {
+						$.data(this.element, NAMESPACE_ALTERNATE, this);
+					}
 				}
 				return this;
 			},
@@ -1053,10 +1069,12 @@ var windowIsDefined = (typeof window === "undefined" ? "undefined" : _typeof(win
 						ticks[i].removeEventListener('mouseenter', this.ticksCallbackMap[i].mouseEnter, false);
 						ticks[i].removeEventListener('mouseleave', this.ticksCallbackMap[i].mouseLeave, false);
 					}
-					this.handle1.removeEventListener('mouseenter', this.handleCallbackMap.handle1.mouseEnter, false);
-					this.handle2.removeEventListener('mouseenter', this.handleCallbackMap.handle2.mouseEnter, false);
-					this.handle1.removeEventListener('mouseleave', this.handleCallbackMap.handle1.mouseLeave, false);
-					this.handle2.removeEventListener('mouseleave', this.handleCallbackMap.handle2.mouseLeave, false);
+					if (this.handleCallbackMap.handle1 && this.handleCallbackMap.handle2) {
+						this.handle1.removeEventListener('mouseenter', this.handleCallbackMap.handle1.mouseEnter, false);
+						this.handle2.removeEventListener('mouseenter', this.handleCallbackMap.handle2.mouseEnter, false);
+						this.handle1.removeEventListener('mouseleave', this.handleCallbackMap.handle1.mouseLeave, false);
+						this.handle2.removeEventListener('mouseleave', this.handleCallbackMap.handle2.mouseLeave, false);
+					}
 				}
 
 				this.handleCallbackMap = null;
@@ -1122,7 +1140,7 @@ var windowIsDefined = (typeof window === "undefined" ? "undefined" : _typeof(win
 				this._state.over = true;
 			},
 			_hideTooltip: function _hideTooltip() {
-				if (this._state.inDrag === false && this.alwaysShowTooltip !== true) {
+				if (this._state.inDrag === false && this._alwaysShowTooltip !== true) {
 					this._removeClass(this.tooltip, 'in');
 					this._removeClass(this.tooltip_min, 'in');
 					this._removeClass(this.tooltip_max, 'in');
@@ -1130,6 +1148,7 @@ var windowIsDefined = (typeof window === "undefined" ? "undefined" : _typeof(win
 				this._state.over = false;
 			},
 			_setToolTipOnMouseOver: function _setToolTipOnMouseOver(tempState) {
+				var self = this;
 				var formattedTooltipVal = this.options.formatter(!tempState ? this._state.value[0] : tempState.value[0]);
 				var positionPercentages = !tempState ? getPositionPercentages(this._state, this.options.reversed) : getPositionPercentages(tempState, this.options.reversed);
 				this._setText(this.tooltipInner, formattedTooltipVal);
@@ -1138,7 +1157,7 @@ var windowIsDefined = (typeof window === "undefined" ? "undefined" : _typeof(win
 
 				function getPositionPercentages(state, reversed) {
 					if (reversed) {
-						return [100 - state.percentage[0], this.options.range ? 100 - state.percentage[1] : state.percentage[1]];
+						return [100 - state.percentage[0], self.options.range ? 100 - state.percentage[1] : state.percentage[1]];
 					}
 					return [state.percentage[0], state.percentage[1]];
 				}
@@ -1159,24 +1178,34 @@ var windowIsDefined = (typeof window === "undefined" ? "undefined" : _typeof(win
 			},
 			_addTickListener: function _addTickListener() {
 				return {
-					addMouseEnter: function addMouseEnter(reference, tick, index) {
+					addMouseEnter: function addMouseEnter(reference, element, index) {
 						var enter = function enter() {
 							var tempState = reference._copyState();
-							var idString = index >= 0 ? index : this.attributes['aria-valuenow'].value;
-							var hoverIndex = parseInt(idString, 10);
-							tempState.value[0] = hoverIndex;
-							tempState.percentage[0] = reference.options.ticks_positions[hoverIndex];
+							// Which handle is being hovered over?
+							var val = element === reference.handle1 ? tempState.value[0] : tempState.value[1];
+							var per = void 0;
+
+							// Setup value and percentage for tick's 'mouseenter'
+							if (index !== undefined) {
+								val = reference.options.ticks[index];
+								per = reference.options.ticks_positions.length > 0 && reference.options.ticks_positions[index] || reference._toPercentage(reference.options.ticks[index]);
+							} else {
+								per = reference._toPercentage(val);
+							}
+
+							tempState.value[0] = val;
+							tempState.percentage[0] = per;
 							reference._setToolTipOnMouseOver(tempState);
 							reference._showTooltip();
 						};
-						tick.addEventListener("mouseenter", enter, false);
+						element.addEventListener("mouseenter", enter, false);
 						return enter;
 					},
-					addMouseLeave: function addMouseLeave(reference, tick) {
+					addMouseLeave: function addMouseLeave(reference, element) {
 						var leave = function leave() {
 							reference._hideTooltip();
 						};
-						tick.addEventListener("mouseleave", leave, false);
+						element.addEventListener("mouseleave", leave, false);
 						return leave;
 					}
 				};
@@ -1471,7 +1500,6 @@ var windowIsDefined = (typeof window === "undefined" ? "undefined" : _typeof(win
 				}
 
 				this._state.percentage[this._state.dragged] = percentage;
-				this._layout();
 
 				if (this.touchCapable) {
 					document.removeEventListener("touchmove", this.mousemove, false);
@@ -1502,7 +1530,6 @@ var windowIsDefined = (typeof window === "undefined" ? "undefined" : _typeof(win
 
 				this._trigger('slideStart', newValue);
 
-				this._setDataVal(newValue);
 				this.setValue(newValue, false, true);
 
 				ev.returnValue = false;
@@ -1564,7 +1591,7 @@ var windowIsDefined = (typeof window === "undefined" ? "undefined" : _typeof(win
 				}
 
 				var val = this._state.value[handleIdx] + dir * this.options.step;
-				var percentage = val / this.options.max * 100;
+				var percentage = this._toPercentage(val);
 				this._state.keyCtrl = handleIdx;
 				if (this.options.range) {
 					this._adjustPercentageForRangeSliders(percentage);
@@ -1577,12 +1604,10 @@ var windowIsDefined = (typeof window === "undefined" ? "undefined" : _typeof(win
 				}
 
 				this._trigger('slideStart', val);
-				this._setDataVal(val);
+
 				this.setValue(val, true, true);
 
-				this._setDataVal(val);
 				this._trigger('slideStop', val);
-				this._layout();
 
 				this._pauseEvent(ev);
 				delete this._state.keyCtrl;
@@ -1607,7 +1632,6 @@ var windowIsDefined = (typeof window === "undefined" ? "undefined" : _typeof(win
 				var percentage = this._getPercentage(ev);
 				this._adjustPercentageForRangeSliders(percentage);
 				this._state.percentage[this._state.dragged] = percentage;
-				this._layout();
 
 				var val = this._calculateValue(true);
 				this.setValue(val, true, true);
@@ -1646,21 +1670,26 @@ var windowIsDefined = (typeof window === "undefined" ? "undefined" : _typeof(win
 					} else if (this._state.dragged === 1 && this._applyToFixedAndParseFloat(this._state.percentage[0], precision) > percentageWithAdjustedPrecision) {
 						this._state.percentage[1] = this._state.percentage[0];
 						this._state.dragged = 0;
-					} else if (this._state.keyCtrl === 0 && this._state.value[1] / this.options.max * 100 < percentage) {
+					} else if (this._state.keyCtrl === 0 && this._toPercentage(this._state.value[1]) < percentage) {
 						this._state.percentage[0] = this._state.percentage[1];
 						this._state.keyCtrl = 1;
 						this.handle2.focus();
-					} else if (this._state.keyCtrl === 1 && this._state.value[0] / this.options.max * 100 > percentage) {
+					} else if (this._state.keyCtrl === 1 && this._toPercentage(this._state.value[0]) > percentage) {
 						this._state.percentage[1] = this._state.percentage[0];
 						this._state.keyCtrl = 0;
 						this.handle1.focus();
 					}
 				}
 			},
-			_mouseup: function _mouseup() {
+			_mouseup: function _mouseup(ev) {
 				if (!this._state.enabled) {
 					return false;
 				}
+
+				var percentage = this._getPercentage(ev);
+				this._adjustPercentageForRangeSliders(percentage);
+				this._state.percentage[this._state.dragged] = percentage;
+
 				if (this.touchCapable) {
 					// Touch: Unbind touch event handlers:
 					document.removeEventListener("touchmove", this.mousemove, false);
@@ -1703,7 +1732,6 @@ var windowIsDefined = (typeof window === "undefined" ? "undefined" : _typeof(win
 					}
 				} else {
 					val = this._toValue(this._state.percentage[0]);
-					val = parseFloat(val);
 					val = this._applyPrecision(val);
 					if (snapToClosestTick) {
 						val = this._snapToClosestTick(val);
@@ -1929,8 +1957,6 @@ var windowIsDefined = (typeof window === "undefined" ? "undefined" : _typeof(win
   		Attach to global namespace
   	*********************************/
 		if ($ && $.fn) {
-			var autoRegisterNamespace = void 0;
-
 			if (!$.fn.slider) {
 				$.bridget(NAMESPACE_MAIN, Slider);
 				autoRegisterNamespace = NAMESPACE_MAIN;

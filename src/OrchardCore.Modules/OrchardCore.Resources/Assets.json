@@ -49,7 +49,7 @@
     "output": "wwwroot/Scripts/jquery.slim.js"
   },
   {
-    "inputs": [ "../../../node_modules/popper.js/dist/popper.js" ],
+    "inputs": [ "../../../node_modules/popper.js/dist/umd/popper.js" ],
     "output": "wwwroot/Scripts/popper.js"
   },
   {
