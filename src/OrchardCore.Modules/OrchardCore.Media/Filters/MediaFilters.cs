@@ -1,4 +1,3 @@
-using System;
 using System.Threading.Tasks;
 using Fluid;
 using Fluid.Values;
@@ -34,7 +33,7 @@ namespace OrchardCore.Media.Filters
 
             foreach (var name in arguments.Names)
             {
-                imgTag += $" {name.Replace("_", "-")}=\"{arguments[name].ToStringValue()}\"";
+                imgTag += $" {name.Replace('_', '-')}=\"{arguments[name].ToStringValue()}\"";
             }
 
             imgTag += " />";
@@ -49,14 +48,14 @@ namespace OrchardCore.Media.Filters
         {
             var url = input.ToStringValue();
 
-            if (!url.Contains("?"))
+            if (!url.Contains('?'))
             {
                 url += "?";
             }
 
             var width = arguments["width"].Or(arguments.At(0));
             var height = arguments["height"].Or(arguments.At(1));
-            var mode = arguments["mode"];
+            var mode = arguments["mode"].Or(arguments.At(2));
 
             if (!width.IsNil())
             {
