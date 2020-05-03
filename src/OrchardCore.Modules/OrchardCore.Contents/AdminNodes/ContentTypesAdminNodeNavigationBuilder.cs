@@ -20,18 +20,17 @@ namespace OrchardCore.Contents.AdminNodes
         private readonly LinkGenerator _linkGenerator;
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly IContentDefinitionManager _contentDefinitionManager;
-        private readonly ILogger<ContentTypesAdminNodeNavigationBuilder> _logger;
+        private readonly ILogger _logger;
 
         public ContentTypesAdminNodeNavigationBuilder(
+            IContentDefinitionManager contentDefinitionManager,
             LinkGenerator linkGenerator,
             IHttpContextAccessor httpContextAccessor,
-            IContentDefinitionManager contentDefinitionManager,
             ILogger<ContentTypesAdminNodeNavigationBuilder> logger)
         {
+            _contentDefinitionManager = contentDefinitionManager;
             _linkGenerator = linkGenerator;
             _httpContextAccessor = httpContextAccessor;
-            _contentDefinitionManager = contentDefinitionManager;
-
             _logger = logger;
         }
 

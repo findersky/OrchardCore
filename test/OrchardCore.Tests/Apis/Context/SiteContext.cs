@@ -12,6 +12,7 @@ namespace OrchardCore.Tests.Apis.Context
         public static HttpClient DefaultTenantClient { get; }
 
         public HttpClient Client { get; private set; }
+        public string TenantName { get; private set; }
         public OrchardGraphQLClient GraphQLClient { get; private set; }
 
         static SiteContext()
@@ -20,7 +21,7 @@ namespace OrchardCore.Tests.Apis.Context
             DefaultTenantClient = Site.CreateDefaultClient();
         }
 
-        public virtual async Task InitializeAsync()
+        public virtual async Task InitializeAsync(PermissionsContext permissionsContext = null)
         {
             var tenantName = Guid.NewGuid().ToString().Replace("-", "");
 
@@ -57,6 +58,14 @@ namespace OrchardCore.Tests.Apis.Context
             lock (Site)
             {
                 Client = Site.CreateDefaultClient(url);
+                TenantName = tenantName;
+            }
+
+            if (permissionsContext != null)
+            {
+                var permissionContextKey = Guid.NewGuid().ToString();
+                SiteStartup.PermissionsContexts.TryAdd(permissionContextKey, permissionsContext);
+                Client.DefaultRequestHeaders.Add("PermissionsContext", permissionContextKey);
             }
 
             GraphQLClient = new OrchardGraphQLClient(Client);
@@ -64,9 +73,13 @@ namespace OrchardCore.Tests.Apis.Context
 
         public async Task<string> CreateContentItem(string contentType, Action<ContentItem> func, bool draft = false)
         {
-            var contentItem = new ContentItem();
-            contentItem.ContentItemId = Guid.NewGuid().ToString();
-            contentItem.ContentType = contentType;
+            // Never generate a fake ContentItemId here as it should be created by the ContentManager.NewAsync() method.
+            // Controllers should use the proper sequence so that they call their event handlers.
+            // In that case it would skip calling ActivatingAsync, ActivatedAsync, InitializingAsync, InitializedAsync events
+            var contentItem = new ContentItem
+            {
+                ContentType = contentType
+            };
 
             func(contentItem);
 

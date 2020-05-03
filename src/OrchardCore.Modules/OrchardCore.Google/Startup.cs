@@ -1,22 +1,24 @@
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Google;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 using OrchardCore.DisplayManagement.Handlers;
-using OrchardCore.Navigation;
-using OrchardCore.Google.Authentication.Configuration;
-using OrchardCore.Google.Authentication.Drivers;
-using OrchardCore.Google.Authentication.Services;
-using OrchardCore.Modules;
-using OrchardCore.Security.Permissions;
-using OrchardCore.Settings;
-using Microsoft.AspNetCore.Authentication.Google;
-using Microsoft.AspNetCore.Mvc;
 using OrchardCore.Google.Analytics;
 using OrchardCore.Google.Analytics.Drivers;
 using OrchardCore.Google.Analytics.Recipes;
-using OrchardCore.Recipes;
+using OrchardCore.Google.Authentication.Configuration;
+using OrchardCore.Google.Authentication.Drivers;
 using OrchardCore.Google.Authentication.Recipes;
+using OrchardCore.Google.Authentication.Services;
+using OrchardCore.Modules;
+using OrchardCore.Navigation;
+using OrchardCore.Recipes;
+using OrchardCore.Security.Permissions;
+using OrchardCore.Settings;
 
 namespace OrchardCore.Google
 {
@@ -39,13 +41,18 @@ namespace OrchardCore.Google
                 // Built-in initializers:
                 ServiceDescriptor.Transient<IPostConfigureOptions<GoogleOptions>, OAuthPostConfigureOptions<GoogleOptions,GoogleHandler>>()
             });
+
+            // Disabling same-site cookie policy is required for the login redirect to properly authenticate the user.
+            services.ConfigureApplicationCookie(options =>
+            {
+                options.Cookie.SameSite = SameSiteMode.None;
+            });
         }
     }
 
     [Feature(GoogleConstants.Features.GoogleAnalytics)]
     public class GoogleAnalyticsStartup : StartupBase
     {
-
         public override void ConfigureServices(IServiceCollection services)
         {
             services.AddScoped<IPermissionProvider, Permissions.GoogleAnalytics>();
@@ -57,7 +64,5 @@ namespace OrchardCore.Google
                 options.Filters.Add(typeof(GoogleAnalyticsFilter));
             });
         }
-
     }
-
 }

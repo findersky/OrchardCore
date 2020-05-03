@@ -1,6 +1,5 @@
 using System.Text.Encodings.Web;
 using System.Threading.Tasks;
-using Fluid;
 using Microsoft.AspNetCore.Html;
 using OrchardCore.ContentManagement.Handlers;
 using OrchardCore.ContentManagement.Models;
@@ -15,6 +14,7 @@ namespace OrchardCore.Html.Handlers
         private readonly ILiquidTemplateManager _liquidTemplateManager;
         private readonly HtmlEncoder _htmlEncoder;
         private HtmlString _bodyAspect;
+        private int _contentItemId;
 
         public HtmlBodyPartHandler(ILiquidTemplateManager liquidTemplateManager, HtmlEncoder htmlEncoder)
         {
@@ -26,9 +26,10 @@ namespace OrchardCore.Html.Handlers
         {
             return context.ForAsync<BodyAspect>(async bodyAspect =>
             {
-                if (_bodyAspect != null)
+                if (bodyAspect != null && part.ContentItem.Id == _contentItemId)
                 {
                     bodyAspect.Body = _bodyAspect;
+
                     return;
                 }
 
@@ -41,17 +42,16 @@ namespace OrchardCore.Html.Handlers
                         ContentItem = part.ContentItem
                     };
 
-                    var templateContext = new TemplateContext();
-                    templateContext.SetValue("ContentItem", part.ContentItem);
-                    templateContext.MemberAccessStrategy.Register<HtmlBodyPartViewModel>();
-                    templateContext.SetValue("Model", model);
+                    var result = await _liquidTemplateManager.RenderAsync(part.Html, _htmlEncoder, model,
+                        scope => scope.SetValue("ContentItem", model.ContentItem));
 
-                    var result = await _liquidTemplateManager.RenderAsync(part.Html, _htmlEncoder, templateContext);
                     bodyAspect.Body = _bodyAspect = new HtmlString(result);
+                    _contentItemId = part.ContentItem.Id;
                 }
                 catch
                 {
                     bodyAspect.Body = HtmlString.Empty;
+                    _contentItemId = default;
                 }
             });
         }
