@@ -21,9 +21,15 @@
               $("#mediaApp").detach().appendTo('#mediaModalBody .modal-body');
               $("#mediaApp").show();
               mediaApp.selectedMedias = [];
-              var modal = $('#mediaModalBody').modal();
+              var modal = new bootstrap.Modal($("#mediaModalBody"));
+              modal.show(); //disable an reset on click event over the button to avoid issue if press button multiple times or have multiple editor
+
+              $('#mediaBodySelectButton').off('click');
               $('#mediaBodySelectButton').on('click', function (v) {
-                var mediaBodyContent = "";
+                //avoid multiple image insert
+                trumbowyg.restoreRange();
+                trumbowyg.range.deleteContents();
+                $(window).trigger('scroll');
 
                 for (i = 0; i < mediaApp.selectedMedias.length; i++) {
                   var img = document.createElement("img");
@@ -32,9 +38,11 @@
                   trumbowyg.range.insertNode(img);
                 }
 
-                trumbowyg.syncTextarea();
-                $(document).trigger('contentpreview:render');
-                $('#mediaModalBody').modal('hide');
+                trumbowyg.syncCode();
+                trumbowyg.$c.trigger('tbwchange'); //avoid image to be selected after add it
+
+                trumbowyg.$c.focus();
+                modal.hide();
                 return true;
               });
             }

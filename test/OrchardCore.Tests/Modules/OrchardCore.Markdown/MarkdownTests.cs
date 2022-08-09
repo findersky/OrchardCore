@@ -11,13 +11,8 @@ namespace OrchardCore.Tests.Modules.OrchardCore.Markdown
         public void ShouldConfigureMarkdownPipeline()
         {
             var services = new ServiceCollection();
-            services.Configure<MarkdownPipelineOptions>(o =>
-            {
-                o.Configure = (pipeline) =>
-                {
-                    pipeline.DisableHtml();
-                };
-            });
+            services.AddOptions<MarkdownPipelineOptions>();
+            services.ConfigureMarkdownPipeline((pipeline) => pipeline.DisableHtml());
 
             services.AddScoped<IMarkdownService, DefaultMarkdownService>();
 
@@ -30,16 +25,22 @@ namespace OrchardCore.Tests.Modules.OrchardCore.Markdown
         }
 
         [Fact]
-        public void ShouldDisabledHtmlEntityEscaping()
+        public void ShouldReconfigureMarkdownPipeline()
         {
+            // Setup. With defaults.
             var services = new ServiceCollection();
-            services.Configure<MarkdownPipelineOptions>(o =>
-            {
-                o.Configure = null;
-            });
+            services.AddOptions<MarkdownPipelineOptions>();
+            services.ConfigureMarkdownPipeline((pipeline) => pipeline.DisableHtml());
 
             services.AddScoped<IMarkdownService, DefaultMarkdownService>();
 
+            // Act. Clear configuration
+            services.Configure<MarkdownPipelineOptions>(o =>
+            {
+                o.Configure.Clear();
+            });
+
+            // Test.
             var markdownService = services.BuildServiceProvider().GetService<IMarkdownService>();
 
             var markdown = @"<h1>foo</h1>";

@@ -1,4 +1,4 @@
-# Google (OrchardCore.Google)
+# Google (`OrchardCore.Google`)
 
 This module adds Google features to OrchardCore.
 
@@ -11,6 +11,16 @@ Navigate to [Google Analytics](https://analytics.google.com/analytics/web) porta
 Copy the Tracking ID from the Admin->Tracking Info->Tracking Code link.
 
 Το configure Orchard Core, go to _Google -> Google Analytics_ settings menu in the admin dashboard and enter the Tracking ID.
+
+## Google Tag Manager
+
+Enable Google Tag Manager Feature to integrate on the front end site.
+
+Navigate to [Google Tag Manager](https://tagmanager.google.com/) portal and create a Tag Manager account.
+
+Copy the _Container ID_ generated for you to use on your website.
+
+Το configure Orchard Core, go to _Google -> Google Tag Manager_ settings menu in the admin dashboard and enter the Container ID.
 
 ## Google Authentication
 

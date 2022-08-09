@@ -21,6 +21,7 @@ namespace OrchardCore.ContentManagement
     public class DefaultContentManager : IContentManager
     {
         private const int ImportBatchSize = 500;
+        private static readonly JsonMergeSettings UpdateJsonMergeSettings = new JsonMergeSettings { MergeArrayHandling = MergeArrayHandling.Replace };
 
         private readonly IContentDefinitionManager _contentDefinitionManager;
         private readonly ISession _session;
@@ -64,13 +65,13 @@ namespace OrchardCore.ContentManagement
             {
                 ContentType = contentTypeDefinition.Name,
                 Definition = contentTypeDefinition,
-                Builder = new ContentItemBuilder(contentTypeDefinition)
+                ContentItem = new ContentItem() { ContentType = contentTypeDefinition.Name }
             };
 
             // invoke handlers to weld aspects onto kernel
             await Handlers.InvokeAsync((handler, context) => handler.ActivatingAsync(context), context, _logger);
 
-            var context2 = new ActivatedContentContext(context.Builder.Build());
+            var context2 = new ActivatedContentContext(context.ContentItem);
 
             context2.ContentItem.ContentItemId = _idGenerator.GenerateUniqueId(context2.ContentItem);
 
@@ -87,11 +88,6 @@ namespace OrchardCore.ContentManagement
 
         public Task<ContentItem> GetAsync(string contentItemId)
         {
-            if (contentItemId == null)
-            {
-                throw new ArgumentNullException(nameof(contentItemId));
-            }
-
             return GetAsync(contentItemId, VersionOptions.Published);
         }
 
@@ -102,7 +98,8 @@ namespace OrchardCore.ContentManagement
                 throw new ArgumentNullException(nameof(contentItemIds));
             }
 
-            List<ContentItem> contentItems;
+            List<ContentItem> contentItems = null;
+            List<ContentItem> storedItems = null;
 
             if (latest)
             {
@@ -113,15 +110,53 @@ namespace OrchardCore.ContentManagement
             }
             else
             {
-                contentItems = (await _session
-                    .Query<ContentItem, ContentItemIndex>()
-                    .Where(x => x.ContentItemId.IsIn(contentItemIds) && x.Published == true)
-                    .ListAsync()).ToList();
+                foreach (var contentItemId in contentItemIds)
+                {
+                    // If the published version is already stored, we can return it.
+                    if (_contentManagerSession.RecallPublishedItemId(contentItemId, out var contentItem))
+                    {
+                        if (storedItems == null)
+                        {
+                            storedItems = new List<ContentItem>();
+                        }
+
+                        storedItems.Add(contentItem);
+                    }
+                }
+
+                // Only query the ids not already stored.
+                var itemIdsToQuery = storedItems != null
+                    ? contentItemIds.Except(storedItems.Select(x => x.ContentItemId))
+                    : contentItemIds;
+
+                if (itemIdsToQuery.Any())
+                {
+                    contentItems = (await _session
+                       .Query<ContentItem, ContentItemIndex>()
+                       .Where(x => x.ContentItemId.IsIn(itemIdsToQuery) && x.Published == true)
+                       .ListAsync()).ToList();
+                }
             }
 
-            for (var i = 0; i < contentItems.Count; i++)
+            if (contentItems != null)
             {
-                contentItems[i] = await LoadAsync(contentItems[i]);
+                for (var i = 0; i < contentItems.Count; i++)
+                {
+                    contentItems[i] = await LoadAsync(contentItems[i]);
+                }
+
+                if (storedItems != null)
+                {
+                    contentItems.AddRange(storedItems);
+                }
+            }
+            else if (storedItems != null)
+            {
+                contentItems = storedItems;
+            }
+            else
+            {
+                return Enumerable.Empty<ContentItem>();
             }
 
             var contentItemIdsArray = contentItemIds.ToImmutableArray();
@@ -130,6 +165,11 @@ namespace OrchardCore.ContentManagement
 
         public async Task<ContentItem> GetAsync(string contentItemId, VersionOptions options)
         {
+            if (String.IsNullOrEmpty(contentItemId))
+            {
+                return null;
+            }
+
             ContentItem contentItem = null;
 
             if (options.IsLatest)
@@ -194,14 +234,14 @@ namespace OrchardCore.ContentManagement
                     else
                     {
                         // Save the previous version
-                        _session.Save(contentItem);
+                        _session.Save(contentItem, checkConcurrency: true);
 
                         contentItem = await BuildNewVersionAsync(contentItem);
                     }
                 }
 
                 // Save the new version
-                _session.Save(contentItem);
+                _session.Save(contentItem, checkConcurrency: true);
             }
 
             return contentItem;
@@ -241,6 +281,22 @@ namespace OrchardCore.ContentManagement
             return await LoadAsync(contentItem);
         }
 
+        public async Task SaveDraftAsync(ContentItem contentItem)
+        {
+            if (!contentItem.Latest || contentItem.Published)
+            {
+                return;
+            }
+
+            var context = new SaveDraftContentContext(contentItem);
+
+            await Handlers.InvokeAsync((handler, context) => handler.DraftSavingAsync(context), context, _logger);
+
+            _session.Save(contentItem, checkConcurrency: true);
+
+            await ReversedHandlers.InvokeAsync((handler, context) => handler.DraftSavedAsync(context), context, _logger);
+        }
+
         public async Task PublishAsync(ContentItem contentItem)
         {
             if (contentItem.Published)
@@ -268,13 +324,12 @@ namespace OrchardCore.ContentManagement
 
             if (previous != null)
             {
-                _session.Save(previous);
+                _session.Save(previous, checkConcurrency: true);
                 previous.Published = false;
             }
 
             contentItem.Published = true;
-
-            _session.Save(contentItem);
+            _session.Save(contentItem, checkConcurrency: true);
 
             await ReversedHandlers.InvokeAsync((handler, context) => handler.PublishedAsync(context), context, _logger);
         }
@@ -317,8 +372,7 @@ namespace OrchardCore.ContentManagement
 
             publishedItem.Published = false;
             publishedItem.ModifiedUtc = _clock.UtcNow;
-
-            _session.Save(publishedItem);
+            _session.Save(publishedItem, checkConcurrency: true);
 
             await ReversedHandlers.InvokeAsync((handler, context) => handler.UnpublishedAsync(context), context, _logger);
         }
@@ -390,10 +444,10 @@ namespace OrchardCore.ContentManagement
             // invoke handlers to add information to persistent stores
             await Handlers.InvokeAsync((handler, context) => handler.CreatingAsync(context), context, _logger);
 
-            await ReversedHandlers.InvokeAsync((handler, context) => handler.CreatedAsync(context), context, _logger);
-
             _session.Save(contentItem);
             _contentManagerSession.Store(contentItem);
+
+            await ReversedHandlers.InvokeAsync((handler, context) => handler.CreatedAsync(context), context, _logger);
 
             if (options.IsPublished)
             {
@@ -420,9 +474,10 @@ namespace OrchardCore.ContentManagement
         public async Task ImportAsync(IEnumerable<ContentItem> contentItems)
         {
             var skip = 0;
-            var take = ImportBatchSize;
 
-            var batchedContentItems = contentItems.Take(take);
+            var importedVersionIds = new HashSet<string>();
+
+            var batchedContentItems = contentItems.Take(ImportBatchSize);
 
             while (batchedContentItems.Any())
             {
@@ -454,6 +509,14 @@ namespace OrchardCore.ContentManagement
                     ContentItem originalVersion = null;
                     if (!String.IsNullOrEmpty(importingItem.ContentItemVersionId))
                     {
+                        if (importedVersionIds.Contains(importingItem.ContentItemVersionId))
+                        {
+                            _logger.LogInformation("Duplicate content item version id '{ContentItemVersionId}' skipped", importingItem.ContentItemVersionId);
+                            continue;
+                        }
+
+                        importedVersionIds.Add(importingItem.ContentItemVersionId);
+
                         originalVersion = versionsToUpdate.FirstOrDefault(x => String.Equals(x.ContentItemVersionId, importingItem.ContentItemVersionId, StringComparison.OrdinalIgnoreCase));
                     }
 
@@ -479,9 +542,6 @@ namespace OrchardCore.ContentManagement
                         // Imported handlers will only be fired if the validation has been successful.
                         // Consumers should implement validated handlers to alter the success of that operation.
                         await ReversedHandlers.InvokeAsync((handler, context) => handler.ImportedAsync(context), context, _logger);
-
-                        // Re-enlist content item here in case of session queries.
-                        _session.Save(importingItem);
                     }
                     else
                     {
@@ -533,15 +593,11 @@ namespace OrchardCore.ContentManagement
                         // Imported handlers will only be fired if the validation has been successful.
                         // Consumers should implement validated handlers to alter the success of that operation.
                         await ReversedHandlers.InvokeAsync((handler, context) => handler.ImportedAsync(context), context, _logger);
-
-                        // Re-enlist content item here in case of session queries.
-                        _session.Save(originalVersion);
                     }
                 }
 
                 skip += ImportBatchSize;
-                take += ImportBatchSize;
-                batchedContentItems = contentItems.Skip(skip).Take(take);
+                batchedContentItems = contentItems.Skip(skip).Take(ImportBatchSize);
             }
         }
 
@@ -550,9 +606,10 @@ namespace OrchardCore.ContentManagement
             var context = new UpdateContentContext(contentItem);
 
             await Handlers.InvokeAsync((handler, context) => handler.UpdatingAsync(context), context, _logger);
-            await ReversedHandlers.InvokeAsync((handler, context) => handler.UpdatedAsync(context), context, _logger);
 
             _session.Save(contentItem);
+
+            await ReversedHandlers.InvokeAsync((handler, context) => handler.UpdatedAsync(context), context, _logger);
         }
 
         public async Task<ContentValidateResult> ValidateAsync(ContentItem contentItem)
@@ -565,10 +622,50 @@ namespace OrchardCore.ContentManagement
 
             if (!validateContext.ContentValidateResult.Succeeded)
             {
-                _session.Cancel();
+                await _session.CancelAsync();
             }
 
             return validateContext.ContentValidateResult;
+        }
+
+        public async Task<ContentValidateResult> RestoreAsync(ContentItem contentItem)
+        {
+            // Prepare record for restore.
+            // So that a new record will be created.
+            contentItem.Id = 0;
+            // So that a new version id will be generated.
+            contentItem.ContentItemVersionId = "";
+            contentItem.Latest = contentItem.Published = false;
+
+            var context = new RestoreContentContext(contentItem);
+            await Handlers.InvokeAsync((handler, context) => handler.RestoringAsync(context), context, _logger);
+
+            // Invoke save and fire update handlers.
+            await UpdateAsync(contentItem);
+
+            var validationResult = await ValidateAsync(contentItem);
+            if (!validationResult.Succeeded)
+            {
+                // The session is already cancelled.
+                return validationResult;
+            }
+
+            // Remove an existing draft but keep an existing published version.
+            var latestVersion = await _session.Query<ContentItem, ContentItemIndex>()
+                .Where(index => index.ContentItemId == contentItem.ContentItemId && index.Latest)
+                .FirstOrDefaultAsync();
+
+            if (latestVersion != null)
+            {
+                latestVersion.Latest = false;
+                _session.Save(latestVersion);
+            }
+
+            await CreateAsync(contentItem, VersionOptions.Draft);
+
+            await ReversedHandlers.InvokeAsync((handler, context) => handler.RestoredAsync(context), context, _logger);
+
+            return validationResult;
         }
 
         public async Task<TAspect> PopulateAspectAsync<TAspect>(IContent content, TAspect aspect)
@@ -638,17 +735,19 @@ namespace OrchardCore.ContentManagement
         public async Task<ContentItem> CloneAsync(ContentItem contentItem)
         {
             var cloneContentItem = await NewAsync(contentItem.ContentType);
+            cloneContentItem.DisplayText = contentItem.DisplayText;
             await CreateAsync(cloneContentItem, VersionOptions.Draft);
 
             var context = new CloneContentContext(contentItem, cloneContentItem);
 
             context.CloneContentItem.Data = contentItem.Data.DeepClone() as JObject;
-            context.CloneContentItem.DisplayText = contentItem.DisplayText;
 
             await Handlers.InvokeAsync((handler, context) => handler.CloningAsync(context), context, _logger);
-            await ReversedHandlers.InvokeAsync((handler, context) => handler.ClonedAsync(context), context, _logger);
 
             _session.Save(context.CloneContentItem);
+
+            await ReversedHandlers.InvokeAsync((handler, context) => handler.ClonedAsync(context), context, _logger);
+
             return context.CloneContentItem;
         }
 
@@ -693,12 +792,13 @@ namespace OrchardCore.ContentManagement
             // Invoked create handlers.
             var context = new CreateContentContext(contentItem);
             await Handlers.InvokeAsync((handler, context) => handler.CreatingAsync(context), context, _logger);
-            await ReversedHandlers.InvokeAsync((handler, context) => handler.CreatedAsync(context), context, _logger);
 
             // The content item should be placed in the session store so that further calls
             // to ContentManager.Get by a scoped index provider will resolve the imported item correctly.
             _session.Save(contentItem);
             _contentManagerSession.Store(contentItem);
+
+            await ReversedHandlers.InvokeAsync((handler, context) => handler.CreatedAsync(context), context, _logger);
 
             await UpdateAsync(contentItem);
 
@@ -715,6 +815,10 @@ namespace OrchardCore.ContentManagement
 
                 await Handlers.InvokeAsync((handler, context) => handler.PublishingAsync(context), publishContext, _logger);
                 await ReversedHandlers.InvokeAsync((handler, context) => handler.PublishedAsync(context), publishContext, _logger);
+            }
+            else
+            {
+                await SaveDraftAsync(contentItem);
             }
 
             // Restore values that may have been altered by handlers.
@@ -738,9 +842,6 @@ namespace OrchardCore.ContentManagement
             {
                 contentItem.Author = author;
             }
-
-            // Re-enlist content item here in case of session queries.
-            _session.Save(contentItem);
 
             return result;
         }
@@ -790,7 +891,7 @@ namespace OrchardCore.ContentManagement
                 await RemovePublishedVersionAsync(updatingVersion, evictionVersions);
             }
 
-            updatingVersion.Merge(updatedVersion);
+            updatingVersion.Merge(updatedVersion, UpdateJsonMergeSettings);
             updatingVersion.Latest = importingLatest;
             updatingVersion.Published = importingPublished;
 
@@ -810,20 +911,21 @@ namespace OrchardCore.ContentManagement
 
                 await Handlers.InvokeAsync((handler, context) => handler.PublishingAsync(context), publishContext, _logger);
                 await ReversedHandlers.InvokeAsync((handler, context) => handler.PublishedAsync(context), publishContext, _logger);
-
-                // Restore values that may have been altered by handlers.
-                if (modifiedUtc.HasValue)
-                {
-                    updatedVersion.ModifiedUtc = modifiedUtc;
-                }
-                if (publishedUtc.HasValue)
-                {
-                    updatedVersion.PublishedUtc = publishedUtc;
-                }
+            }
+            else
+            {
+                await SaveDraftAsync(updatingVersion);
             }
 
-            // Re-enlist content item here in case of session queries.
-            _session.Save(updatingVersion);
+            // Restore values that may have been altered by handlers.
+            if (modifiedUtc.HasValue)
+            {
+                updatingVersion.ModifiedUtc = modifiedUtc;
+            }
+            if (publishedUtc.HasValue)
+            {
+                updatingVersion.PublishedUtc = publishedUtc;
+            }
 
             return result;
         }
@@ -844,13 +946,15 @@ namespace OrchardCore.ContentManagement
 
             if (latestVersion != null)
             {
-                var publishedVersion = evictionVersions.FirstOrDefault(x => x.Published);
+                var publishedVersion = evictionVersions?.FirstOrDefault(x => x.Published);
 
                 var removeContext = new RemoveContentContext(contentItem, publishedVersion == null);
 
                 await Handlers.InvokeAsync((handler, context) => handler.RemovingAsync(context), removeContext, _logger);
+
                 latestVersion.Latest = false;
                 _session.Save(latestVersion);
+
                 await ReversedHandlers.InvokeAsync((handler, context) => handler.RemovedAsync(context), removeContext, _logger);
             }
         }
@@ -874,8 +978,10 @@ namespace OrchardCore.ContentManagement
                 var removeContext = new RemoveContentContext(contentItem, true);
 
                 await Handlers.InvokeAsync((handler, context) => handler.RemovingAsync(context), removeContext, _logger);
+
                 publishedVersion.Published = false;
                 _session.Save(publishedVersion);
+
                 await ReversedHandlers.InvokeAsync((handler, context) => handler.RemovedAsync(context), removeContext, _logger);
             }
         }

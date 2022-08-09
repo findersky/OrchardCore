@@ -14,7 +14,12 @@ namespace OrchardCore.Tenants.Workflows.Activities
 {
     public class CreateTenantTask : TenantTask
     {
-        public CreateTenantTask(IShellSettingsManager shellSettingsManager, IShellHost shellHost, IWorkflowExpressionEvaluator expressionEvaluator, IWorkflowScriptEvaluator scriptEvaluator, IStringLocalizer<CreateTenantTask> localizer)
+        public CreateTenantTask(
+            IShellSettingsManager shellSettingsManager,
+            IShellHost shellHost,
+            IWorkflowExpressionEvaluator expressionEvaluator,
+            IWorkflowScriptEvaluator scriptEvaluator,
+            IStringLocalizer<CreateTenantTask> localizer)
             : base(shellSettingsManager, shellHost, expressionEvaluator, scriptEvaluator, localizer)
         {
         }
@@ -73,6 +78,12 @@ namespace OrchardCore.Tenants.Workflows.Activities
             set => SetProperty(value);
         }
 
+        public WorkflowExpression<string> FeatureProfile
+        {
+            get => GetProperty(() => new WorkflowExpression<string>());
+            set => SetProperty(value);
+        }
+
         public override IEnumerable<Outcome> GetPossibleOutcomes(WorkflowExecutionContext workflowContext, ActivityContext activityContext)
         {
             return Outcomes(S["Done"], S["Failed"]);
@@ -85,7 +96,7 @@ namespace OrchardCore.Tenants.Workflows.Activities
                 return Outcomes("Failed");
             }
 
-            var tenantName = (await ExpressionEvaluator.EvaluateAsync(TenantName, workflowContext))?.Trim();
+            var tenantName = (await ExpressionEvaluator.EvaluateAsync(TenantName, workflowContext, null))?.Trim();
 
             if (string.IsNullOrEmpty(tenantName))
             {
@@ -97,12 +108,13 @@ namespace OrchardCore.Tenants.Workflows.Activities
                 return Outcomes("Failed");
             }
 
-            var requestUrlPrefix = (await ExpressionEvaluator.EvaluateAsync(RequestUrlPrefix, workflowContext))?.Trim();
-            var requestUrlHost = (await ExpressionEvaluator.EvaluateAsync(RequestUrlHost, workflowContext))?.Trim();
-            var databaseProvider = (await ExpressionEvaluator.EvaluateAsync(DatabaseProvider, workflowContext))?.Trim();
-            var connectionString = (await ExpressionEvaluator.EvaluateAsync(ConnectionString, workflowContext))?.Trim();
-            var tablePrefix = (await ExpressionEvaluator.EvaluateAsync(TablePrefix, workflowContext))?.Trim();
-            var recipeName = (await ExpressionEvaluator.EvaluateAsync(RecipeName, workflowContext))?.Trim();
+            var requestUrlPrefix = (await ExpressionEvaluator.EvaluateAsync(RequestUrlPrefix, workflowContext, null))?.Trim();
+            var requestUrlHost = (await ExpressionEvaluator.EvaluateAsync(RequestUrlHost, workflowContext, null))?.Trim();
+            var databaseProvider = (await ExpressionEvaluator.EvaluateAsync(DatabaseProvider, workflowContext, null))?.Trim();
+            var connectionString = (await ExpressionEvaluator.EvaluateAsync(ConnectionString, workflowContext, null))?.Trim();
+            var tablePrefix = (await ExpressionEvaluator.EvaluateAsync(TablePrefix, workflowContext, null))?.Trim();
+            var recipeName = (await ExpressionEvaluator.EvaluateAsync(RecipeName, workflowContext, null))?.Trim();
+            var featureProfile = (await ExpressionEvaluator.EvaluateAsync(FeatureProfile, workflowContext, null))?.Trim();
 
             // Creates a default shell settings based on the configuration.
             shellSettings = ShellSettingsManager.CreateDefaultSettings();
@@ -139,6 +151,11 @@ namespace OrchardCore.Tenants.Workflows.Activities
             if (!string.IsNullOrEmpty(recipeName))
             {
                 shellSettings["RecipeName"] = recipeName;
+            }
+
+            if (!string.IsNullOrEmpty(featureProfile))
+            {
+                shellSettings["FeatureProfile"] = featureProfile;
             }
 
             shellSettings["Secret"] = Guid.NewGuid().ToString();

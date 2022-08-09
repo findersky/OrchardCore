@@ -1,4 +1,4 @@
-# Orchard Core Theming explained
+# Orchard Core Theming explained (`OrchardCore.Themes`)
 
 This article explains how a Content Item is rendered, and the many ways in which the HTML that is rendered can be customized.  
 It also explains the fundamental theming concepts, namely __Shapes__, __Alternates__, __Templates__, __Differentiators__, __Content Zones__ and __Display Types__.
@@ -100,9 +100,9 @@ The __Bag__ part will invoke all available display drivers recursively, to rende
 
 Each of these drivers return one or more shapes that are added to named zones (or sections) of a global __Shape__ called the `Content` shape.
 
-For instance the `TitleDisplayDriver` class will return a shape of type `TitlePart` in the `Header` zone of the main shape at position `5`. See [TitlePartDisplay](../../../../OrchardCore.Modules/OrchardCore.Title/Drivers/TitlePartDisplay.cs#L14-L20)
+For instance the `TitleDisplayDriver` class will return a shape of type `TitlePart` in the `Header` zone of the main shape at position `5`. See [TitlePartDisplayDriver](../../../../OrchardCore.Modules/OrchardCore.Title/Drivers/TitlePartDisplayDriver.cs#L14-L20)
 
-Then the `BagPart` shape is added in the `Content` zone of the main shape at the position `5`. See [BagPartDisplay](../../../../OrchardCore.Modules/OrchardCore.Flows/Drivers/BagPartDisplay.cs#L39-L45).
+Then the `BagPart` shape is added in the `Content` zone of the main shape at the position `5`. See [BagPartDisplayDriver](../../../../OrchardCore.Modules/OrchardCore.Flows/Drivers/BagPartDisplayDriver.cs#L39-L45).
 
 Once all the drivers for all the parts and all the fields have returned their shapes to specific zones of the main `Content` shape, Orchard will look for a matching template.
 Template matching is done dynamically, and if no specific ones are created for a Content Type, then the file `Content.cshtml` (or `Content.liquid`) is used.  

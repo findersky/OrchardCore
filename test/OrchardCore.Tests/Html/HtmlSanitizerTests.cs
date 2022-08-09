@@ -1,4 +1,3 @@
-using Markdig;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using OrchardCore.Infrastructure.Html;
@@ -14,6 +13,7 @@ namespace OrchardCore.Tests.Html
         [InlineData("<script>alert('xss')</script><div onload=\"alert('xss')\">Test<img src=\"test.gif\" style=\"background-image: url(javascript:alert('xss')); margin: 10px\"></div>", "<div>Test<img src=\"test.gif\" style=\"margin: 10px\"></div>")]
         [InlineData("<IMG SRC=javascript:alert(\"XSS\")>", @"<img>")]
         [InlineData("<a href=\"javascript: alert('xss')\">Click me</a>", @"<a>Click me</a>")]
+        [InlineData("<a href=\"[locale 'en']javascript: alert('xss')[/locale]\">Click me</a>", @"<a>Click me</a>")]
         public void ShouldSanitizeHTML(string html, string sanitized)
         {
             // Setup
@@ -27,12 +27,10 @@ namespace OrchardCore.Tests.Html
         public void ShouldConfigureSanitizer()
         {
             var services = new ServiceCollection();
-            services.Configure<HtmlSanitizerOptions>(o =>
+            services.AddOptions<HtmlSanitizerOptions>();
+            services.ConfigureHtmlSanitizer((sanitizer) =>
             {
-                o.Configure = (sanitizer) =>
-                {
-                    sanitizer.AllowedAttributes.Add("class");
-                };
+                sanitizer.AllowedAttributes.Add("class");
             });
 
             services.AddScoped<IHtmlSanitizerService, HtmlSanitizerService>();
@@ -42,6 +40,33 @@ namespace OrchardCore.Tests.Html
             var input = @"<a href=""bar"" class=""foo"">baz</a>";
             var sanitized = sanitizer.Sanitize(input);
             Assert.Equal(input, sanitized);
+        }
+
+        [Fact]
+        public void ShouldReconfigureSanitizer()
+        {
+            // Setup. With defaults.
+            var services = new ServiceCollection();
+            services.AddOptions<HtmlSanitizerOptions>();
+            services.ConfigureHtmlSanitizer((sanitizer) =>
+            {
+                sanitizer.AllowedAttributes.Add("class");
+            });
+
+            // Act. Reconfigure to remove defaults.
+            services.Configure<HtmlSanitizerOptions>(o =>
+            {
+                o.Configure.Clear();
+            });
+
+            // Test.
+            services.AddScoped<IHtmlSanitizerService, HtmlSanitizerService>();
+
+            var sanitizer = services.BuildServiceProvider().GetService<IHtmlSanitizerService>();
+
+            var input = @"<a href=""bar"" class=""foo"">baz</a>";
+            var sanitized = sanitizer.Sanitize(input);
+            Assert.Equal(@"<a href=""bar"">baz</a>", sanitized);
         }
     }
 }

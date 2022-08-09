@@ -1,5 +1,7 @@
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Fluid;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Localization;
 using OrchardCore.Workflows.Abstractions.Models;
@@ -51,9 +53,9 @@ namespace OrchardCore.Workflows.Http.Activities
 
         public override async Task<ActivityExecutionResult> ExecuteAsync(WorkflowExecutionContext workflowContext, ActivityContext activityContext)
         {
-            var location = await _expressionEvaluator.EvaluateAsync(Location, workflowContext);
+            var location = await _expressionEvaluator.EvaluateAsync(Location, workflowContext, NullEncoder.Default);
 
-            _httpContextAccessor.HttpContext.Response.Redirect(location, Permanent);
+            _httpContextAccessor.HttpContext.Response.Redirect(location.ToUriComponents(), Permanent);
             _httpContextAccessor.HttpContext.Items[WorkflowHttpResult.Instance] = WorkflowHttpResult.Instance;
 
             return Outcomes("Done");

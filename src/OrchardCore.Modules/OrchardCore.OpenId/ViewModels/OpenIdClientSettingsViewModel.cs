@@ -20,7 +20,7 @@ namespace OrchardCore.OpenId.ViewModels
         [RegularExpression(@"\/[-A-Za-z0-9+&@#\/%?=~_|!:,.;]+[-A-Za-z0-9+&@#\/%=~_|]", ErrorMessage = "Invalid path")]
         public string CallbackPath { get; set; }
 
-        [Url(ErrorMessage = "Invalid signeout redirect url")]
+        [Url(ErrorMessage = "Invalid SignedOut redirect url")]
         public string SignedOutRedirectUri { get; set; }
 
         [RegularExpression(@"\/[-A-Za-z0-9+&@#\/%?=~_|!:,.;]+[-A-Za-z0-9+&@#\/%=~_|]", ErrorMessage = "Invalid path")]
@@ -35,5 +35,6 @@ namespace OrchardCore.OpenId.ViewModels
         public bool UseCodeTokenFlow { get; set; }
         public bool UseIdTokenFlow { get; set; }
         public bool UseIdTokenTokenFlow { get; set; }
+        public string Parameters { get; set; }
     }
 }
