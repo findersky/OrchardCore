@@ -25,7 +25,6 @@ using OrchardCore.Security.Permissions;
 using OrchardCore.Users.Models;
 using OrchardCore.Workflows.Helpers;
 using YesSql.Filters.Query;
-using YesSql.Indexes;
 
 namespace OrchardCore.Notifications;
 
@@ -44,7 +43,7 @@ public class Startup : StartupBase
         services.AddScoped<INotificationMethodProviderAccessor, NotificationMethodProviderAccessor>();
 
         services.AddDataMigration<NotificationMigrations>();
-        services.AddSingleton<IIndexProvider, NotificationIndexProvider>();
+        services.AddIndexProvider<NotificationIndexProvider>();
         services.AddScoped<INotificationsAdminListQueryService, DefaultNotificationsAdminListQueryService>();
         services.Configure<StoreCollectionOptions>(o => o.Collections.Add(NotificationConstants.NotificationCollection));
         services.AddScoped<INotificationEvents, CoreNotificationEventsHandler>();
@@ -78,13 +77,11 @@ public class Startup : StartupBase
 
     public override void Configure(IApplicationBuilder builder, IEndpointRouteBuilder routes, IServiceProvider serviceProvider)
     {
-        var adminControllerName = typeof(AdminController).ControllerName();
-
         routes.MapAreaControllerRoute(
             name: "ListNotifications",
             areaName: "OrchardCore.Notifications",
             pattern: _adminOptions.AdminUrlPrefix + "/notifications",
-            defaults: new { controller = adminControllerName, action = nameof(AdminController.List) }
+            defaults: new { controller = typeof(AdminController).ControllerName(), action = nameof(AdminController.List) }
         );
     }
 }
@@ -108,7 +105,7 @@ public class UsersWorkflowStartup : StartupBase
 }
 
 [Feature("OrchardCore.Notifications.Email")]
-public class EmailNotificationStartup : StartupBase
+public class EmailNotificationsStartup : StartupBase
 {
     public override void ConfigureServices(IServiceCollection services)
     {

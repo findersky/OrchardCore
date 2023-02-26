@@ -463,10 +463,13 @@ namespace OrchardCore.Users.Services
             {
                 var roleNames = await _roleService.GetRoleNamesAsync();
 
-                if (!roleNames.Any(r => NormalizeKey(r) == normalizedRoleName))
+                var roleName = roleNames.FirstOrDefault(r => NormalizeKey(r) == normalizedRoleName);
+                if (String.IsNullOrEmpty(roleName))
                 {
                     throw new InvalidOperationException($"Role {normalizedRoleName} does not exist.");
                 }
+
+                u.RoleNames.Add(roleName);
             }
         }
 
@@ -481,10 +484,13 @@ namespace OrchardCore.Users.Services
             {
                 var roleNames = await _roleService.GetRoleNamesAsync();
 
-                if (!roleNames.Any(r => NormalizeKey(r) == normalizedRoleName))
+                var roleName = roleNames.FirstOrDefault(r => NormalizeKey(r) == normalizedRoleName);
+                if (String.IsNullOrEmpty(roleName))
                 {
                     throw new InvalidOperationException($"Role {normalizedRoleName} does not exist.");
                 }
+
+                u.RoleNames.Remove(roleName);
             }
         }
 
@@ -801,8 +807,11 @@ namespace OrchardCore.Users.Services
                 u.UserTokens.Add(userToken);
             }
 
-            // Encrypt the token
-            userToken.Value = _dataProtectionProvider.CreateProtector(TokenProtector).Protect(value);
+            // Encrypt the token.
+            if (userToken != null)
+            {
+                userToken.Value = _dataProtectionProvider.CreateProtector(TokenProtector).Protect(value);
+            }
 
             return Task.CompletedTask;
         }

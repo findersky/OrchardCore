@@ -93,7 +93,7 @@ namespace OrchardCore.Contents.Controllers
                     .Where(ctd => ctd.IsCreatable())
                     .OrderBy(ctd => ctd.DisplayName);
 
-            if (!await _authorizationService.AuthorizeContentTypeDefinitionsAsync(User, CommonPermissions.ViewContent, contentTypeDefinitions, _contentManager))
+            if (!await _authorizationService.AuthorizeContentTypeDefinitionsAsync(User, CommonPermissions.ListContent, contentTypeDefinitions, _contentManager))
             {
                 return Forbid();
             }
@@ -192,15 +192,12 @@ namespace OrchardCore.Contents.Controllers
 
                 foreach (var ctd in _contentDefinitionManager.ListTypeDefinitions())
                 {
-                    if (!ctd.IsListable())
+                    if (!ctd.IsListable() || !await _authorizationService.AuthorizeContentTypeAsync(User, CommonPermissions.ListContent, ctd, userNameIdentifier))
                     {
                         continue;
                     }
 
-                    if (await _authorizationService.AuthorizeContentTypeAsync(User, CommonPermissions.ViewContent, ctd, CurrentUserId()))
-                    {
-                        listableTypes.Add(ctd);
-                    }
+                    listableTypes.Add(ctd);
                 }
 
                 var contentTypeOptions = listableTypes
@@ -214,7 +211,7 @@ namespace OrchardCore.Contents.Controllers
 
                 foreach (var option in contentTypeOptions)
                 {
-                    if (!await _authorizationService.AuthorizeContentTypeAsync(User, CommonPermissions.ViewContent, option.Key, userNameIdentifier))
+                    if (!await _authorizationService.AuthorizeContentTypeAsync(User, CommonPermissions.ListContent, option.Key, userNameIdentifier))
                     {
                         continue;
                     }
@@ -406,7 +403,7 @@ namespace OrchardCore.Contents.Controllers
 
             var stayOnSamePage = submitPublish == "submit.PublishAndContinue";
             // Pass a dummy contentitem to the authorization check to check for "own" variations permissions.
-            if (await _authorizationService.AuthorizeContentTypeAsync(User, CommonPermissions.PublishContent, id, CurrentUserId()))
+            if (!await _authorizationService.AuthorizeContentTypeAsync(User, CommonPermissions.PublishContent, id, CurrentUserId()))
             {
                 return Forbid();
             }
@@ -534,6 +531,7 @@ namespace OrchardCore.Contents.Controllers
             {
                 return Forbid();
             }
+
             return await EditPOST(contentItemId, returnUrl, stayOnSamePage, async contentItem =>
             {
                 await _contentManager.PublishAsync(contentItem);
