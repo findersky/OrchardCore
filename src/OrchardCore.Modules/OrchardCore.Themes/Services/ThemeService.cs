@@ -45,12 +45,12 @@ namespace OrchardCore.Themes.Services
                     break;
                 themes.Enqueue(themeName);
 
-                themeName = !String.IsNullOrWhiteSpace(theme.Manifest.Name)
+                themeName = !string.IsNullOrWhiteSpace(theme.Manifest.Name)
                     ? theme.Manifest.Name
                     : null;
             }
 
-            var currentTheme = await _siteThemeService.GetCurrentThemeNameAsync();
+            var currentTheme = await _siteThemeService.GetSiteThemeNameAsync();
 
             while (themes.Count > 0)
             {

@@ -84,7 +84,7 @@ namespace OrchardCore.Modules.Manifest
         /// Creates a <typeparamref name="TAttribute"/> from its <paramref name="args"/>, with
         /// the ability to apply a <paramref name="classifier"/> to each of the arguments. We
         /// classify the <see cref="Type"/> of each argument this way because each one may be
-        /// Null, particularly, <see cref="String"/> arguments, which is okay for Features,
+        /// Null, particularly, <see cref="string"/> arguments, which is okay for Features,
         /// Modules, etc.
         /// </summary>
         /// <param name="classifier"></param>
@@ -108,9 +108,8 @@ namespace OrchardCore.Modules.Manifest
             // Identify the Ctor with the Parameters aligned to the Classified Arguments.
             var allAttributeCtorWithParameterTypes = allAttributeCtors.Select(ctor => new
             {
-                Callback = ctor
-                ,
-                Types = ctor.GetParameters().Select(_ => _.ParameterType).ToArray()
+                Callback = ctor,
+                Types = ctor.GetParameters().Select(_ => _.ParameterType).ToArray(),
             }).ToArray();
 
             var attributeCtor = allAttributeCtorWithParameterTypes.SingleOrDefault(_ => _.Types.SequenceEqual(types))
@@ -124,7 +123,7 @@ namespace OrchardCore.Modules.Manifest
 
         /// <summary>
         /// Classifier supporting
-        /// <see cref="FeatureAttribute(String, String, String, Boolean, Boolean, Boolean)"/>, arguments in
+        /// <see cref="FeatureAttribute(string, string, string, bool, bool, bool)"/>, arguments in
         /// order, <c>id, description, featureDependencies, defaultTenant, alwaysEnabled, enabledByDependencyOnly</c>.
         /// </summary>
         /// <param name="index"></param>
@@ -139,7 +138,7 @@ namespace OrchardCore.Modules.Manifest
 
         /// <summary>
         /// Classifier supporting
-        /// <see cref="FeatureAttribute(String, String, String, String, Boolean, Boolean, Boolean)"/>, arguments in
+        /// <see cref="FeatureAttribute(string, string, string, string, bool, bool, bool)"/>, arguments in
         /// order, <c>id, name, description, featureDependencies, defaultTenant, alwaysEnabled, enabledByDependencyOnly</c>.
         /// </summary>
         /// <param name="index"></param>
@@ -154,7 +153,7 @@ namespace OrchardCore.Modules.Manifest
 
         /// <summary>
         /// Classifier supporting
-        /// <see cref="FeatureAttribute(String, String, String, String, String, String, Boolean, Boolean, Boolean)"/>, arguments in
+        /// <see cref="FeatureAttribute(string, string, string, string, string, string, bool, bool, bool)"/>, arguments in
         /// order, <c>id, name, category, priority, description, featureDependencies, defaultTenant, alwaysEnabled, enabledByDependencyOnly</c>.
         /// </summary>
         /// <param name="index"></param>
@@ -222,7 +221,7 @@ namespace OrchardCore.Modules.Manifest
         protected static T[] GetArray<T>(params T[] values) => GetValues(values).ToArray();
 
         /// <summary>
-        /// Provides a Pair that may be rendered to <see cref="String"/>.
+        /// Provides a Pair that may be rendered to <see cref="string"/>.
         /// </summary>
         protected readonly struct RenderKeyValuePair
         {
@@ -246,7 +245,7 @@ namespace OrchardCore.Modules.Manifest
             /// </summary>
             /// <param name="_"></param>
             /// <returns></returns>
-            /// <remarks>Given value may be Null, Nullable, Sring, or Boolean. Otherwise,
+            /// <remarks>Given value may be Null, Nullable, String, or Boolean. Otherwise,
             /// makes a best effort to convert directly to string.</remarks>
             private static string DefaultRender(object _)
             {
@@ -316,7 +315,7 @@ namespace OrchardCore.Modules.Manifest
             }
 
             /// <inheritdoc/>
-            public override string ToString() => String.Join(": ", $"\"{Key}\"", Render.Invoke(Value));
+            public override string ToString() => string.Join(": ", $"\"{Key}\"", Render.Invoke(Value));
         }
 
         /// <summary>
@@ -325,8 +324,8 @@ namespace OrchardCore.Modules.Manifest
         /// <param name="pairs"></param>
         /// <returns></returns>
         protected virtual string RenderKeyValuePairs(params RenderKeyValuePair[] pairs) =>
-            String.Join(
-                String.Join(", ", pairs.Select(_ => $"{_}")), "{}".ToCharArray().Select(_ => $"{_}")
+            string.Join(
+                string.Join(", ", pairs.Select(_ => $"{_}")), "{}".ToCharArray().Select(_ => $"{_}")
             );
 
         /// <summary>

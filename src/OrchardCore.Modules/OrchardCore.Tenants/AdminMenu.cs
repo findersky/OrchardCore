@@ -19,7 +19,7 @@ namespace OrchardCore.Tenants
 
         public Task BuildNavigationAsync(string name, NavigationBuilder builder)
         {
-            if (!String.Equals(name, "admin", StringComparison.OrdinalIgnoreCase))
+            if (!string.Equals(name, "admin", StringComparison.OrdinalIgnoreCase))
             {
                 return Task.CompletedTask;
             }
@@ -38,8 +38,8 @@ namespace OrchardCore.Tenants
                         .Action("Index", "Admin", new { area = "OrchardCore.Tenants" })
                         .Permission(Permissions.ManageTenants)
                         .LocalNav()
-                    )
-                , priority: 1);
+                    ),
+                    priority: 1);
 
             return Task.CompletedTask;
         }
