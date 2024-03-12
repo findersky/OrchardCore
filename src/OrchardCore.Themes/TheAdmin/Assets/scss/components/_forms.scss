@@ -4,7 +4,7 @@
 
 .hint {
     font-size: 0.875em;
-    color: var(--bs-text-body-secondary) !important;
+    color: var(--bs-secondary) !important;
     @include word-wrap;
 }
 
@@ -22,6 +22,10 @@
     padding: $kbd-padding-y $kbd-padding-x;
     color: $pre-color;
     @include border-radius($border-radius);
+}
+
+.form-label {
+    margin-bottom: 0.25rem;
 }
 
 .label-link {
