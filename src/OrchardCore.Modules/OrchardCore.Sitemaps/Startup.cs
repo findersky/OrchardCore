@@ -28,7 +28,7 @@ using OrchardCore.Sitemaps.Services;
 
 namespace OrchardCore.Sitemaps
 {
-    public class Startup : StartupBase
+    public sealed class Startup : StartupBase
     {
         public override void ConfigureServices(IServiceCollection services)
         {
@@ -85,6 +85,11 @@ namespace OrchardCore.Sitemaps
             // Allows to serialize 'SitemapType' derived types.
             services.AddJsonDerivedTypeInfo<Sitemap, SitemapType>();
             services.AddJsonDerivedTypeInfo<SitemapIndex, SitemapType>();
+
+            // Allows to serialize 'SitemapSource' derived types.
+            services.AddJsonDerivedTypeInfo<ContentTypesSitemapSource, SitemapSource>();
+            services.AddJsonDerivedTypeInfo<CustomPathSitemapSource, SitemapSource>();
+            services.AddJsonDerivedTypeInfo<SitemapIndexSource, SitemapSource>();
         }
 
         public override void Configure(IApplicationBuilder app, IEndpointRouteBuilder routes, IServiceProvider serviceProvider)
@@ -94,7 +99,7 @@ namespace OrchardCore.Sitemaps
     }
 
     [Feature("OrchardCore.Sitemaps.RazorPages")]
-    public class SitemapsRazorPagesStartup : StartupBase
+    public sealed class SitemapsRazorPagesStartup : StartupBase
     {
         public override void ConfigureServices(IServiceCollection services)
         {
@@ -104,7 +109,7 @@ namespace OrchardCore.Sitemaps
     }
 
     [Feature("OrchardCore.Sitemaps.Cleanup")]
-    public class SitemapsCleanupStartup : StartupBase
+    public sealed class SitemapsCleanupStartup : StartupBase
     {
         public override void ConfigureServices(IServiceCollection services)
         {
@@ -113,7 +118,7 @@ namespace OrchardCore.Sitemaps
     }
 
     [RequireFeatures("OrchardCore.Deployment", "OrchardCore.Sitemaps")]
-    public class SitemapsDeploymentStartup : StartupBase
+    public sealed class SitemapsDeploymentStartup : StartupBase
     {
         public override void ConfigureServices(IServiceCollection services)
         {
@@ -122,7 +127,7 @@ namespace OrchardCore.Sitemaps
     }
 
     [RequireFeatures("OrchardCore.Seo")]
-    public class SeoStartup : StartupBase
+    public sealed class SeoStartup : StartupBase
     {
         public override void ConfigureServices(IServiceCollection services)
         {

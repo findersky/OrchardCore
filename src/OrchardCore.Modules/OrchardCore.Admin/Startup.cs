@@ -1,4 +1,6 @@
 using System;
+using Fluid;
+using Fluid.Values;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ApplicationModels;
@@ -9,10 +11,13 @@ using Microsoft.Extensions.Options;
 using OrchardCore.Admin.Controllers;
 using OrchardCore.Admin.Drivers;
 using OrchardCore.Admin.Models;
+using OrchardCore.DisplayManagement;
 using OrchardCore.DisplayManagement.Handlers;
+using OrchardCore.DisplayManagement.ModelBinding;
 using OrchardCore.DisplayManagement.Theming;
 using OrchardCore.Environment.Shell.Configuration;
 using OrchardCore.Environment.Shell.Scope;
+using OrchardCore.Liquid;
 using OrchardCore.Modules;
 using OrchardCore.Mvc.Core.Utilities;
 using OrchardCore.Mvc.Routing;
@@ -23,7 +28,7 @@ using OrchardCore.Settings.Deployment;
 
 namespace OrchardCore.Admin
 {
-    public class Startup : StartupBase
+    public sealed class Startup : StartupBase
     {
         private readonly AdminOptions _adminOptions;
         private readonly IShellConfiguration _configuration;
@@ -40,11 +45,11 @@ namespace OrchardCore.Admin
 
             services.Configure<MvcOptions>((options) =>
             {
-                options.Filters.Add(typeof(AdminFilter));
-                options.Filters.Add(typeof(AdminMenuFilter));
+                options.Filters.Add<AdminFilter>();
+                options.Filters.Add<AdminMenuFilter>();
 
                 // Ordered to be called before any global filter.
-                options.Filters.Add(typeof(AdminZoneFilter), -1000);
+                options.Filters.Add<AdminZoneFilter>(-1000);
             });
 
             services.AddTransient<IAreaControllerRouteMapper, AdminAreaControllerRouteMapper>();
@@ -71,9 +76,10 @@ namespace OrchardCore.Admin
         }
     }
 
-    public class AdminPagesStartup : StartupBase
+    public sealed class AdminPagesStartup : StartupBase
     {
-        public override int Order => 1000;
+        public override int Order
+            => OrchardCoreConstants.ConfigureOrder.AdminPages;
 
         public override void ConfigureServices(IServiceCollection services)
         {
@@ -86,11 +92,36 @@ namespace OrchardCore.Admin
     }
 
     [RequireFeatures("OrchardCore.Deployment")]
-    public class DeploymentStartup : StartupBase
+    public sealed class DeploymentStartup : StartupBase
     {
         public override void ConfigureServices(IServiceCollection services)
         {
             services.AddSiteSettingsPropertyDeploymentStep<AdminSettings, DeploymentStartup>(S => S["Admin settings"], S => S["Exports the admin settings."]);
+        }
+    }
+
+    [RequireFeatures("OrchardCore.Liquid")]
+    public sealed class LiquidStartup : StartupBase
+    {
+        public override void ConfigureServices(IServiceCollection services)
+        {
+            services.Configure<TemplateOptions>(o =>
+            {
+                o.Scope.SetValue(nameof(Navbar), new FunctionValue(async (args, ctx) =>
+                {
+                    if (ctx is LiquidTemplateContext context)
+                    {
+                        var displayManager = context.Services.GetRequiredService<IDisplayManager<Navbar>>();
+                        var updateModelAccessor = context.Services.GetRequiredService<IUpdateModelAccessor>();
+
+                        var shape = await displayManager.BuildDisplayAsync(updateModelAccessor.ModelUpdater);
+
+                        return FluidValue.Create(shape, ctx.Options);
+                    }
+
+                    return NilValue.Instance;
+                }));
+            });
         }
     }
 }

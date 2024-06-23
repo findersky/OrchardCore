@@ -73,14 +73,9 @@ public class AzureAISearchIndexingService
             lastTaskId = Math.Min(lastTaskId, taskId);
         }
 
-        if (indexSettings.Count == 0)
-        {
-            return;
-        }
-
         var tasks = new List<IndexingTask>();
 
-        var allContentTypes = indexSettings.SelectMany(x => x.IndexedContentTypes ?? []).Distinct().ToList();
+        var allContentTypes = indexSettings.SelectMany(x => x.IndexedContentTypes ?? []).Distinct().ToArray();
         var readOnlySession = _store.CreateSession(withTracking: false);
 
         while (tasks.Count <= _batchSize)

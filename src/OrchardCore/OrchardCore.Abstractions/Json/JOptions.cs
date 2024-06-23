@@ -13,11 +13,13 @@ public static class JOptions
     public static readonly JsonSerializerOptions Base = new()
     {
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-        ReferenceHandler = ReferenceHandler.IgnoreCycles,
+        PreferredObjectCreationHandling = JsonObjectCreationHandling.Populate,
+        ReferenceHandler = null, // Needed by JsonObjectCreationHandling.Populate.
         ReadCommentHandling = JsonCommentHandling.Skip,
         PropertyNameCaseInsensitive = true,
         AllowTrailingCommas = true,
-        WriteIndented = false
+        WriteIndented = false,
+        NumberHandling = JsonNumberHandling.AllowReadingFromString,
     };
 
     public static readonly JsonSerializerOptions Default;
@@ -34,6 +36,8 @@ public static class JOptions
         Default = new JsonSerializerOptions(Base);
         Default.Converters.Add(new DynamicJsonConverter());
         Default.Converters.Add(new PathStringJsonConverter());
+        Default.Converters.Add(new TimeSpanJsonConverter());
+        Default.Converters.Add(new DateTimeJsonConverter());
 
         Indented = new JsonSerializerOptions(Default)
         {
