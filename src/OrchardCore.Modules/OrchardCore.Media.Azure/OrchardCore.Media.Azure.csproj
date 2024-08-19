@@ -28,6 +28,7 @@
 
   <ItemGroup>
     <PackageReference Include="SixLabors.ImageSharp.Web.Providers.Azure" />
+    <PackageReference Include="System.IO.Hashing" />
   </ItemGroup>
 
 </Project>

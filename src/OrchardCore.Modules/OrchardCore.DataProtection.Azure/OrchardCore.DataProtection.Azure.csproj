@@ -15,6 +15,7 @@
 
   <ItemGroup>
     <PackageReference Include="Azure.Extensions.AspNetCore.DataProtection.Blobs" />
+    <PackageReference Include="System.IO.Hashing" />
   </ItemGroup>
 
   <ItemGroup>

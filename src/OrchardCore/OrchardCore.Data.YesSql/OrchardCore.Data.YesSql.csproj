@@ -23,6 +23,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Azure.Identity" />
     <PackageReference Include="YesSql" />
   </ItemGroup>
 
