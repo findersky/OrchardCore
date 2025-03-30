@@ -7,7 +7,7 @@
 
 @{
     var isCurrentUser = Model.User.UserName == User.Identity.Name;
-    var canEdit = await AuthorizationService.AuthorizeAsync(User, CommonPermissions.EditUsers, Model.User);
+    var canEdit = await AuthorizationService.AuthorizeAsync(User, UsersPermissions.EditUsers, Model.User);
     var isLockedOut = await UserManager.IsLockedOutAsync(Model.User);
 }
 
@@ -24,7 +24,14 @@
     }
 }
 
-@if (!isCurrentUser && await AuthorizationService.AuthorizeAsync(User, CommonPermissions.DeleteUsers, Model.User))
+@if (canEdit && !await UserManager.IsEmailConfirmedAsync(Model.User))
+{
+    <li>
+        <a asp-action="ConfirmEmail" asp-route-id="@Model.User.UserId" class="dropdown-item" data-url-af="RemoveUrl UnsafeUrl" data-title="@T["Confirm email"]" data-message="@T["Are you sure you want to confirm the email for this user?"]">@T["Confirm email"]</a>
+    </li>
+}
+
+@if (!isCurrentUser && await AuthorizationService.AuthorizeAsync(User, UsersPermissions.DeleteUsers, Model.User))
 {
     <li>
         <a asp-action="Delete" asp-route-id="@Model.User.UserId" class="dropdown-item text-danger" data-url-af="RemoveUrl UnsafeUrl">@T["Delete"]</a>

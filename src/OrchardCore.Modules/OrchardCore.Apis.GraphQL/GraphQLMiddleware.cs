@@ -60,7 +60,7 @@ public class GraphQLMiddleware : IMiddleware
                 context.User = authenticateResult.Principal;
             }
             var authorizationService = context.RequestServices.GetService<IAuthorizationService>();
-            var authorized = await authorizationService.AuthorizeAsync(context.User, CommonPermissions.ExecuteGraphQL);
+            var authorized = await authorizationService.AuthorizeAsync(context.User, GraphQLPermissions.ExecuteGraphQL);
 
             if (authorized)
             {
@@ -91,7 +91,7 @@ public class GraphQLMiddleware : IMiddleware
 
                 if (mediaType.IsSubsetOf(_jsonMediaType) || mediaType.IsSubsetOf(_graphQlMediaType))
                 {
-                    using var sr = new StreamReader(context.Request.Body);
+                    using var sr = new StreamReader(context.Request.Body, leaveOpen: true);
                     if (mediaType.IsSubsetOf(_graphQlMediaType))
                     {
                         request = new GraphQLNamedQueryRequest
