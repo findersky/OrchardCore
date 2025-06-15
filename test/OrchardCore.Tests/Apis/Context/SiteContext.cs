@@ -3,6 +3,8 @@ using OrchardCore.BackgroundTasks;
 using OrchardCore.ContentManagement;
 using OrchardCore.Environment.Shell;
 using OrchardCore.Environment.Shell.Scope;
+using OrchardCore.Indexing;
+using OrchardCore.Indexing.Core;
 using OrchardCore.Recipes.Services;
 using OrchardCore.Search.Lucene;
 
@@ -97,11 +99,13 @@ public class SiteContext : IDisposable
         var shellScope = await ShellHost.GetScopeAsync(TenantName);
         HttpContextAccessor.HttpContext = shellScope.ShellContext.CreateHttpContext();
         await shellScope.UsingAsync(execute, activateShell);
+
+        HttpContextAccessor.HttpContext = null;
     }
 
-    public async Task RunRecipeAsync(string recipeName, string recipePath)
+    public Task RunRecipeAsync(string recipeName, string recipePath)
     {
-        await UsingTenantScopeAsync(async scope =>
+        return UsingTenantScopeAsync(async scope =>
         {
             var shellFeaturesManager = scope.ServiceProvider.GetRequiredService<IShellFeaturesManager>();
             var recipeHarvesters = scope.ServiceProvider.GetRequiredService<IEnumerable<IRecipeHarvester>>();
@@ -124,17 +128,22 @@ public class SiteContext : IDisposable
         });
     }
 
-    public async Task ResetLuceneIndiciesAsync(string indexName)
+    public Task ResetLuceneIndexesAsync(string indexName)
     {
-        await UsingTenantScopeAsync(async scope =>
+        return UsingTenantScopeAsync(async scope =>
         {
-            var luceneIndexSettingsService = scope.ServiceProvider.GetRequiredService<LuceneIndexSettingsService>();
-            var luceneIndexingService = scope.ServiceProvider.GetRequiredService<LuceneIndexingService>();
+            var indexProfileManager = scope.ServiceProvider.GetRequiredService<IIndexProfileManager>();
+            var indexManager = scope.ServiceProvider.GetRequiredService<LuceneIndexManager>();
+            var contentIndexingService = scope.ServiceProvider.GetRequiredService<ContentIndexingService>();
 
-            var luceneIndexSettings = await luceneIndexSettingsService.GetSettingsAsync(indexName);
+            var index = await indexProfileManager.FindByNameAndProviderAsync(indexName, LuceneConstants.ProviderName);
 
-            luceneIndexingService.ResetIndexAsync(indexName);
-            await luceneIndexingService.ProcessContentItemsAsync(indexName);
+            await indexProfileManager.ResetAsync(index);
+            await indexProfileManager.UpdateAsync(index);
+
+            // Instead of calling SynchronizeAsync which triggers the indexing in a background process,
+            // directly call and await the indexing process.
+            await contentIndexingService.ProcessRecordsForAllIndexesAsync();
         });
     }
 
