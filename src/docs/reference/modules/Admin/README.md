@@ -2,11 +2,43 @@
 
 The Admin module provides an admin dashboard for your site.
 
+## Extend the admin dashboard
+
+The `AdminDashboard` shape renders an `AdminDashboardContent` child shape. Features can add their own positioned content to this shape by registering a shape table provider:
+
+```csharp
+using OrchardCore.DisplayManagement;
+using OrchardCore.DisplayManagement.Descriptors;
+using OrchardCore.DisplayManagement.Views;
+
+public sealed class AdminDashboardShapeTableProvider : ShapeTableProvider
+{
+    public override ValueTask DiscoverAsync(ShapeTableBuilder builder)
+    {
+        builder.Describe("AdminDashboardContent")
+            .OnDisplaying(async displaying =>
+            {
+                await displaying.Shape.AddAsync(new ShapeViewModel("MyAdminDashboardContent"), "10");
+            });
+
+        return ValueTask.CompletedTask;
+    }
+}
+```
+
+Register the provider from the feature's `Startup` class:
+
+```csharp
+services.AddShapeTableProvider<AdminDashboardShapeTableProvider>();
+```
+
+The `MyAdminDashboardContent` shape is rendered using its matching shape template. Contributions are ordered by the position passed to `AddAsync()`.
+
 ## Custom Admin prefix
 
-If you want to specify another prefix in the urls to access the admin section, you can change it by using this option in the `appsettings.json`:
+If you want to specify another prefix in the URLs to access the admin section, you can change it by using this option in the `appsettings.json`:
 
-``` json
+```json
   "OrchardCore": {
     "OrchardCore_Admin": {
       "AdminUrlPrefix": "YourCustomAdminUrl"
@@ -18,7 +50,7 @@ If you want to specify another prefix in the urls to access the admin section, y
 
 By default, OrchardCore logo and site name are displayed in the top navbar.
 
-You can change it by overriding 'AdminBranding' shape, either from a [custom admin theme](../../../guides/create-admin-theme/README.md) or using Admin Templates feature.  
+You can change it by overriding 'AdminBranding' shape, either from a [custom admin theme](../../../guides/create-admin-theme/README.md) or using the Admin Templates feature.  
 You can also use this shape to define admin favicon.
 
 Here are samples using logo and favicon from media module.
@@ -56,13 +88,12 @@ Here are samples using logo and favicon from media module.
 
 The navigation bar shape is available in two display types `Detail` for the frontend and `DetailAdmin` for the backend admin. The `Navbar` shape is composed and used `TheAdmin` and `TheTheme` themes. If you wish to compose and use the `Navbar` shape in other themes, you may create it using two steps
 
-
 === "Liquid"
 
     ``` liquid
     // Construct the shape at the beginning of the layout.liquid file to enable navbar items to potentially contribute to the resources output as necessary.
     {% assign navbar = Navbar() | shape_render %}
-    
+
     // Subsequently in the layout.liquid file, invoke the shape at the location where you want to display it.
     {{ navbar }}
     ```
@@ -81,7 +112,6 @@ The navigation bar shape is available in two display types `Detail` for the fron
     @navbar
     ```
 
-
 If you wish to add a menu item to the navbar, simply create a display driver for `Navbar`.
 
 As an illustration, we inject the Visit Site link into `DetailAdmin` display type using a display driver as outlined below:
@@ -92,19 +122,19 @@ public class VisitSiteNavbarDisplayDriver : DisplayDriver<Navbar>
     public override IDisplayResult Display(Navbar model, BuildDisplayContext context)
     {
         return View("VisitSiteNavbarItem", model)
-            .Location("DetailAdmin", "Content:20");
+            .Location(OrchardCoreConstants.DisplayType.DetailAdmin, "Content:20");
     }
 }
 ```
 
-You can change it by overriding 'VisitSiteNavbarItem' shape, either from a [custom admin theme](../../../guides/create-admin-theme/README.md) or using Admin Templates feature.  
+You can change it by overriding 'VisitSiteNavbarItem' shape, either from a [custom admin theme](../../../guides/create-admin-theme/README.md) or using the Admin Templates feature.
 
 === "Liquid"
 
     ``` liquid
     <li class="nav-item">
         <a href="{{ '~' | absolute_url }}" class="nav-link" data-bs-toggle="tooltip" data-bs-placement="bottom" title="{{ "Visit Site" | t }}" role="button">
-            <i class="fa-solid fa-fw fa-external-link" aria-hidden="true"></i>
+            <i class="fa-solid fa-external-link" aria-hidden="true"></i>
         </a>
     </li>
     ```
@@ -114,7 +144,7 @@ You can change it by overriding 'VisitSiteNavbarItem' shape, either from a [cust
     ``` html
     <li class="nav-item">
         <a href="@Url.Content("~/")" class="nav-link" data-bs-toggle="tooltip" data-bs-placement="bottom" title="@T["Visit Site"]" role="button">
-            <i class="fa-solid fa-fw fa-external-link" aria-hidden="true"></i>
+            <i class="fa-solid fa-external-link" aria-hidden="true"></i>
         </a>
     </li>
     ```
@@ -137,3 +167,30 @@ public sealed class PersonController : Controller
 ```
 
 In this example, (if the admin prefix remains the default "Admin") you can reach the Index action at `~/Admin/Person` (or by the route name `Person`), because its own action-level attribute took precedence. You can reach Create at `~/Admin/Person/Create` (route name `PersonCreate`) and Edit for the person whose identifier string is "john-doe" at `~/Admin/Person/john-doe` (route name `PersonEdit`).
+
+## Recipe Configuration
+
+The admin settings can be configured using the `Settings` recipe step:
+
+```json
+{
+  "steps": [
+    {
+      "name": "settings",
+      "AdminSettings": {
+        "DisplayThemeToggler": true,
+        "DisplayMenuFilter": true,
+        "DisplayNewMenu": true,
+        "DisplayTitlesInTopbar": true
+      }
+    }
+  ]
+}
+```
+
+| Property                | Type    | Description                                                       |
+|-------------------------|---------|-------------------------------------------------------------------|
+| `DisplayThemeToggler`   | Boolean | Whether to display the light/dark theme toggler in the admin.     |
+| `DisplayMenuFilter`     | Boolean | Whether to display the menu filter input in the admin navigation. |
+| `DisplayNewMenu`        | Boolean | Whether to display the 'New' menu in the admin navigation.        |
+| `DisplayTitlesInTopbar` | Boolean | Whether to display page titles in the top bar.                    |

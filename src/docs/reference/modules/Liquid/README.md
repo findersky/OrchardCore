@@ -70,6 +70,22 @@ Blog
 
 ## String Filters
 
+### `transliterate`
+Convert Unicode text (e.g. Greek, Cyrillic, Arabic, Chinese, etc.) into its closest ASCII/Latin representation using the <https://github.com/anyascii/anyascii> library.
+
+Input
+
+```liquid
+{{ "Ελληνικά" | transliterate }}
+```
+
+Output
+
+```text
+Ellinika
+```
+
+
 ### `slugify`
 
 Convert a text into a string that can be used in a URL.
@@ -85,6 +101,23 @@ Output
 ```text
 this-is-some-text
 ```
+
+There is an option to transliterate (by default `true`) which first transliterates and slugifies afterwards:
+
+```liquid
+{{ "Ελληνικά" | slugify }}
+```
+or 
+```liquid
+{{ "Ελληνικά" | slugify: transliterate: true}}
+```
+
+Output
+
+```text
+ellinika
+```
+
 
 ### `local`
 
@@ -122,22 +155,6 @@ Output
 
 ```text
 Wednesday, 02 August 2017 11:54:48
-```
-
-### `t`
-
-Localizes a string using the current culture.
-
-Input
-
-```liquid
-{{ "Hello!" | t }}
-```
-
-Output
-
-```text
-Bonjour!
 ```
 
 ## Html Filters
@@ -263,6 +280,38 @@ Renders Shortcodes. Should be combined with the `raw` filter.
 {{ Model.ContentItem.Content.RawHtml.Content.Html | shortcode | raw }}
 ```
 
+## Localization Filters
+
+### `t`
+
+Localizes a string using the current culture.
+
+Input
+
+```liquid
+{{ "Hello!" | t }}
+```
+
+Output
+
+```text
+Bonjour!
+```
+
+You can pass one or more parameters to a localized string:
+
+Input
+
+```liquid
+{{ "Hello {0}!" | t: "John" }}
+```
+
+Output
+
+```text
+Bonjour John!
+```
+
 ## Json Filters
 
 ### `json`
@@ -298,6 +347,41 @@ Example:
 {% for k in jsonObject %}
   {{k["key"]}} {{k["value"]}}
 {% endfor %}
+```
+
+## Data Protection Filters
+
+### `encrypt`
+
+Encrypts a string using the ASP.NET Core Data Protection API and returns a Base64-encoded ciphertext.
+
+Input
+
+```liquid
+{{ "my-secret-value" | encrypt }}
+```
+
+Output
+
+```text
+CfDJ8...  (Base64-encoded ciphertext)
+```
+
+### `decrypt`
+
+Decrypts a Base64-encoded string previously encrypted with the `encrypt` filter. Returns nil if the input is empty or cannot be decrypted.
+
+Input
+
+```liquid
+{% assign encrypted = "my-secret-value" | encrypt %}
+{{ encrypted | decrypt }}
+```
+
+Output
+
+```text
+my-secret-value
 ```
 
 ## Properties
@@ -386,25 +470,27 @@ Returns the user's unique identifier.
 {{ User | user_id }}
 ```
 
-##### users_by_id filter
+#### User Object Properties
 
-Loads a single or multiple user objects from the database by id(s).
-
-The resulting object has access to the following properties:
+When using the `users_by_id` or `users_by_name` filters to load user objects from the database, the following properties are available:
 
 | Property             | Example                      | Description                                                                           |
 |----------------------|------------------------------|---------------------------------------------------------------------------------------|
-| `UserId`             | `42z3ps88pm8d40zn9cfwbee45c` | The id of the authenticated user.                                                     |
-| `UserName`           | `admin`                      | The name of the authenticated user.                                                   |
-| `NormalizedUserName` | `ADMIN`                      | The normailzed name of the authenticated user.                                        |
-| `Email`              | `admin@gmail.com`            | The email of the authenticated user.                                                  |
-| `NormailizedEmail`   | `ADMIN@GMAIL.COM`            | The normalized email of the authenticated user.                                       |
-| `EmailConfirmed`     | `true`                       | True if the user has confirmed his email or if the email confirmation is not required |
+| `UserId`             | `42z3ps88pm8d40zn9cfwbee45c` | The id of the user.                                                                   |
+| `UserName`           | `admin`                      | The name of the user.                                                                 |
+| `NormalizedUserName` | `ADMIN`                      | The normalized name of the user.                                                      |
+| `Email`              | `admin@gmail.com`            | The email of the user.                                                                |
+| `NormalizedEmail`    | `ADMIN@GMAIL.COM`            | The normalized email of the user.                                                     |
+| `EmailConfirmed`     | `true`                       | True if the user has confirmed their email or if email confirmation is not required   |
 | `IsEnabled`          | `true`                       | True if the user is enabled                                                           |
 | `RoleNames`          | `[Editor,Contributor]`       | An array of role names assigned to the user                                           |
 | `Properties`         | `UserProfile.FirstName.Text` | Holds the Custom Users Settings of the user.                                          |
 
-You can use this filter to load the user information of the current authenticated user like this.
+##### users_by_id filter
+
+Loads a single or multiple user objects from the database by id(s). See [User Object Properties](#user-object-properties) for available properties.
+
+You can use this filter to load the user information of the current authenticated user like this:
 
 ```liquid
 {% assign user = User | user_id | users_by_id %}
@@ -412,10 +498,33 @@ You can use this filter to load the user information of the current authenticate
 {{ user.UserName }} - {{ user.Email }}
 ```
 
-You can use this filter with the UserPicker field to load the picked user's information.
+You can use this filter with the UserPicker field to load the picked user's information:
 
 ```liquid
 {% assign users = Model.ContentItem.Content.SomeType.UserPicker.UserIds | users_by_id %}
+
+{% for user in users %}
+  {{ user.UserName }} - {{ user.Email }}
+{% endfor %}
+```
+
+##### users_by_name filter
+
+Loads a single or multiple user objects from the database by username(s). The username is automatically normalized before querying. See [User Object Properties](#user-object-properties) for available properties.
+
+You can use this filter to load a user by their username:
+
+```liquid
+{% assign user = "admin" | users_by_name %}
+
+{{ user.UserName }} - {{ user.Email }}
+```
+
+You can also use this filter with an array of usernames:
+
+```liquid
+{% assign usernames = "admin,editor,contributor" | split: "," %}
+{% assign users = usernames | users_by_name %}
 
 {% for user in users %}
   {{ user.UserName }} - {{ user.Email }}
@@ -587,6 +696,60 @@ Here is an example of how to use the `TrackingConsent` object in a Liquid templa
 {% else %}
     <p>Tracking is not allowed.</p>
 {% endif %}
+```
+
+## Localization Filters
+
+### `d`
+
+Localizes a dynamic data string using the current culture.
+
+### Parameters
+
+| Property | Example                                | Description   |
+|----------|----------------------------------------|---------------|
+| Context  | The context that the string belongs to | Content Types |
+
+Input
+
+```liquid
+{{ "Blog" | d: "Content Types" }}
+```
+
+Output
+
+For `fr`, `it`, `es` cultures, it will return:
+
+```text
+Blog
+```
+
+For `ar` culture, it will return:
+
+```text
+مدونة
+```
+
+For unsupported cultures or missing translations, it will return:
+
+```text
+Blog.Content Types
+```
+
+You can pass one or more parameters to a localized string:
+
+Input
+
+```liquid
+{{ "New {0}" | d: "Content Types", "Article" }}
+```
+
+Output
+
+For `it` culture, it will return:
+
+```text
+New Articolo
 ```
 
 ## Shape Filters

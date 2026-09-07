@@ -3,11 +3,14 @@ using Azure;
 using Azure.Communication.Email;
 using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using OrchardCore.Email.Azure.Models;
+using OrchardCore.Infrastructure;
 
 namespace OrchardCore.Email.Azure.Services;
 
-public abstract class AzureEmailProviderBase : IEmailProvider
+public abstract class AzureEmailProviderBase<TOptions> : IEmailProvider
+    where TOptions : AzureEmailOptions
 {
     // Common supported file extensions and their corresponding MIME types for email attachments
     // using Azure Communication Services Email.
@@ -78,39 +81,52 @@ public abstract class AzureEmailProviderBase : IEmailProvider
         { ".zip", "application/zip" },
     };
 
-    private readonly AzureEmailOptions _providerOptions;
+    private readonly IOptionsMonitor<TOptions> _optionsMonitor;
     private readonly ILogger _logger;
+    private readonly Lock _emailClientLock = new();
 
     private EmailClient _emailClient;
+    private string _emailClientConnectionString;
 
     protected readonly IStringLocalizer S;
 
     public AzureEmailProviderBase(
-        AzureEmailOptions options,
+        IOptionsMonitor<TOptions> optionsMonitor,
         ILogger logger,
         IStringLocalizer stringLocalizer)
     {
-        _providerOptions = options;
+        _optionsMonitor = optionsMonitor;
         _logger = logger;
         S = stringLocalizer;
     }
 
     public abstract LocalizedString DisplayName { get; }
 
-    public virtual async Task<EmailResult> SendAsync(MailMessage message)
+    /// <summary>
+    /// Sends the specified email message by using the configured Azure Communication Services email provider.
+    /// </summary>
+    /// <param name="message">The email message to send.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>A <see cref="Result"/> describing whether the email was sent successfully.</returns>
+    public virtual async Task<Result> SendAsync(MailMessage message, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(message);
 
-        if (!_providerOptions.IsEnabled)
+        var providerOptions = _optionsMonitor.CurrentValue;
+
+        if (!providerOptions.IsEnabled)
         {
-            return EmailResult.FailedResult(S["The Azure Email Provider is disabled."]);
+            return Result.Failed(S["The Azure Email Provider is disabled."]);
         }
 
         var senderAddress = string.IsNullOrWhiteSpace(message.From)
-            ? _providerOptions.DefaultSender
+            ? providerOptions.DefaultSender
             : message.From;
 
-        _logger.LogDebug("Attempting to send email to {Email}.", message.To);
+        if (_logger.IsEnabled(LogLevel.Debug))
+        {
+            _logger.LogDebug("Attempting to send email to {Email}.", message.To);
+        }
 
         if (!string.IsNullOrWhiteSpace(senderAddress))
         {
@@ -121,7 +137,11 @@ public abstract class AzureEmailProviderBase : IEmailProvider
             }
             else
             {
-                return EmailResult.FailedResult(nameof(message.From), S["Invalid email address for the sender: '{0}'.", senderAddress]);
+                return Result.Failed(new ResultError
+                {
+                    Key = nameof(message.From),
+                    Message = S["Invalid email address for the sender: '{0}'.", senderAddress],
+                });
             }
         }
 
@@ -130,28 +150,50 @@ public abstract class AzureEmailProviderBase : IEmailProvider
 
         if (errors.Count > 0)
         {
-            return EmailResult.FailedResult(errors);
+            var resultErrors = errors.SelectMany(kvp => kvp.Value.Select(error => new ResultError
+            {
+                Key = kvp.Key,
+                Message = error,
+            }));
+
+            return Result.Failed(resultErrors);
         }
 
         try
         {
-            _emailClient ??= new EmailClient(_providerOptions.ConnectionString);
+            var emailClient = GetOrCreateEmailClient(providerOptions.ConnectionString);
+            var result = await emailClient.SendAsync(WaitUntil.Completed, emailMessage, cancellationToken);
 
-            var emailResult = await _emailClient.SendAsync(WaitUntil.Completed, emailMessage);
-
-            if (emailResult.HasValue)
+            if (result.HasValue)
             {
-                return EmailResult.SuccessResult;
+                return Result.Success();
             }
 
-            return EmailResult.FailedResult(string.Empty, S["An error occurred while sending an email."]);
+            return Result.Failed(S["An error occurred while sending an email."]);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "An error occurred while sending an email using the Azure Email Provider.");
 
             // IMPORTANT: Do not expose ex.Message as it could contain the connection string in a raw format!
-            return EmailResult.FailedResult(string.Empty, S["An error occurred while sending an email."]);
+            return Result.Failed(S["An error occurred while sending an email."]);
+        }
+    }
+
+    protected virtual EmailClient CreateEmailClient(string connectionString) => new(connectionString);
+
+    protected EmailClient GetOrCreateEmailClient(string connectionString)
+    {
+        lock (_emailClientLock)
+        {
+            if (!string.Equals(_emailClientConnectionString, connectionString, StringComparison.Ordinal))
+            {
+                // Recreate the client so it uses the latest connection string after options change.
+                _emailClient = CreateEmailClient(connectionString);
+                _emailClientConnectionString = connectionString;
+            }
+
+            return _emailClient;
         }
     }
 

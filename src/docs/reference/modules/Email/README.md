@@ -5,7 +5,7 @@ This module provides the infrastructure necessary to send emails using multiple 
 
 ## Settings
 
-Enabling the `Email` feature will add a new settings page under `Configurations` → `Settings` → `Email`. You can utilize these settings to set up the default Email provider. The following are the providers that are readily accessible in OrchardCore:
+Enabling the `Email` feature will add a new settings page under `Settings` → `Communication` → `Email`. You can utilize these settings to set up the default Email provider. The following are the providers that are readily accessible in OrchardCore:
 
 
 | Provider                                         | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
@@ -56,6 +56,10 @@ public class SmtpProviderOptionsConfigurations : IConfigureOptions<EmailProvider
 }
 ```
 
+If your provider options are built from site settings or other tenant data that can change at runtime, consume them through `IOptionsMonitor<TOptions>` in the provider and any `IConfigureOptions<EmailProviderOptions>` implementation that depends on them. Register `AddSignalOptionsChangeTokenSource<TOptions>()` for any options type that should participate in post-commit refresh, then request invalidation for the affected options types with `IOptionsUpdateNotifier` when the settings editor saves changes.
+
+For example, Orchard Core now refreshes the Azure email provider in-place by invalidating `AzureEmailOptions`, `EmailProviderOptions`, and `EmailOptions`, and the built-in email modules register signal-backed change token sources for those options types so the standard `IOptionsMonitor<TOptions>` can rebuild them from committed tenant state.
+
 ## Sending Email Messages
 
 An Email message can be sent by injecting `IEmailService` and invoking the `SendAsync` method. For instance:
@@ -95,7 +99,7 @@ public class TestController
 
 ## Testing Provider
 
-After configuring a provider, you may test it by visiting `Configuration` → `Settings` → `Email Test`.
+After configuring a provider, you may test it by visiting `Tools` → `Testing` → `Email Test`.
 
 ## Events
 
@@ -104,3 +108,24 @@ You can easily monitor various events triggered during the message-sending proce
 ## Video
 
 <iframe width="560" height="315" src="https://www.youtube-nocookie.com/embed/FmgZHpFHCcg" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+
+## Recipe Configuration
+
+Email settings can be configured using the `Settings` recipe step:
+
+```json
+{
+  "steps": [
+    {
+      "name": "settings",
+      "EmailSettings": {
+        "DefaultProviderName": "SMTP"
+      }
+    }
+  ]
+}
+```
+
+| Property              | Type   | Description                             |
+|-----------------------|--------|-----------------------------------------|
+| `DefaultProviderName` | String | The name of the default email provider. |

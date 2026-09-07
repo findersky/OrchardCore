@@ -1,13 +1,16 @@
 using Azure.Communication.Sms;
 using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using OrchardCore.Infrastructure;
 using OrchardCore.Sms.Azure.Models;
 
 namespace OrchardCore.Sms.Azure.Services;
 
-public abstract class AzureSmsProviderBase : ISmsProvider
+public abstract class AzureSmsProviderBase<TOptions> : ISmsProvider
+    where TOptions : AzureSmsOptions
 {
-    private readonly AzureSmsOptions _providerOptions;
+    private readonly IOptionsMonitor<TOptions> _optionsMonitor;
     private readonly IPhoneFormatValidator _phoneFormatValidator;
     private readonly ILogger _logger;
 
@@ -16,12 +19,12 @@ public abstract class AzureSmsProviderBase : ISmsProvider
     protected readonly IStringLocalizer S;
 
     public AzureSmsProviderBase(
-        AzureSmsOptions options,
+        IOptionsMonitor<TOptions> optionsMonitor,
         IPhoneFormatValidator phoneFormatValidator,
         ILogger logger,
         IStringLocalizer stringLocalizer)
     {
-        _providerOptions = options;
+        _optionsMonitor = optionsMonitor;
         _phoneFormatValidator = phoneFormatValidator;
         _logger = logger;
         S = stringLocalizer;
@@ -29,50 +32,80 @@ public abstract class AzureSmsProviderBase : ISmsProvider
 
     public abstract LocalizedString Name { get; }
 
-    public virtual async Task<SmsResult> SendAsync(SmsMessage message)
+    /// <summary>
+    /// Sends the specified SMS message by using the configured Azure Communication Services SMS provider.
+    /// </summary>
+    /// <param name="message">The SMS message to send.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>A <see cref="Result"/> describing whether the SMS was sent successfully.</returns>
+    public virtual async Task<Result> SendAsync(SmsMessage message, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(message);
 
-        if (!_providerOptions.IsEnabled)
+        var providerOptions = _optionsMonitor.CurrentValue;
+
+        if (!providerOptions.IsEnabled)
         {
-            return SmsResult.Failed(S["The Azure Communication Provider is disabled."]);
+            return Result.Failed(S["The Azure Communication Provider is disabled."]);
         }
 
-        _logger.LogDebug("Attempting to send an SMS message using Azure Communication service to {Recipient}.", message.To);
+        if (_logger.IsEnabled(LogLevel.Debug))
+        {
+            _logger.LogDebug("Attempting to send an SMS message using Azure Communication service to {Recipient}.", message.To);
+        }
 
         if (string.IsNullOrWhiteSpace(message.To))
         {
-            return SmsResult.Failed(S["A phone number is required for the recipient.", message.To]);
+            return Result.Failed(new ResultError
+            {
+                Key = nameof(message.To),
+                Message = S["A phone number is required for the recipient.", message.To],
+            });
         }
 
         if (!_phoneFormatValidator.IsValid(message.To))
         {
-            return SmsResult.Failed(S["Invalid phone number format for the recipient: '{0}'.", message.To]);
+            return Result.Failed(new ResultError
+            {
+                Key = nameof(message.To),
+                Message = S["Invalid phone number format for the recipient: '{0}'.", message.To],
+            });
         }
 
         if (string.IsNullOrEmpty(message.Body))
         {
-            return SmsResult.Failed(S["The message body is required.", message.To]);
+            return Result.Failed(new ResultError
+            {
+                Key = nameof(message.Body),
+                Message = S["The message body is required."],
+            });
         }
 
         try
         {
-            _smsClient ??= new SmsClient(_providerOptions.ConnectionString);
+            _smsClient ??= new SmsClient(providerOptions.ConnectionString);
 
-            var response = await _smsClient.SendAsync(_providerOptions.PhoneNumber, message.To, message.Body);
+            var senderNumber = providerOptions.PhoneNumber;
+
+            if (!string.IsNullOrEmpty(message.From))
+            {
+                senderNumber = message.From;
+            }
+
+            var response = await _smsClient.SendAsync(senderNumber, message.To, message.Body, options: default, cancellationToken);
 
             if (response.Value.Successful)
             {
-                return SmsResult.Success;
+                return Result.Success();
             }
 
-            return SmsResult.Failed(S["SMS message was not send."]);
+            return Result.Failed(S["The SMS message has not been sent."]);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "An error occurred while sending an SMS using the Azure SMS Provider.");
 
-            return SmsResult.Failed(S["An error occurred while sending an SMS."]);
+            return Result.Failed(S["An error occurred while sending an SMS."]);
         }
     }
 }

@@ -19,7 +19,8 @@ using YesSql;
 namespace OrchardCore.Setup.Services;
 
 /// <summary>
-/// Represents a setup service.
+/// Provides services for retrieving setup recipes and performing application setup operations, including initializing
+/// tenants and configuring the database during the setup process.
 /// </summary>
 public class SetupService : ISetupService
 {
@@ -151,12 +152,27 @@ public class SetupService : ISetupService
         _httpContextAccessor.HttpContext.Features.Set(recipeEnvironmentFeature);
 
         var shellSettings = new ShellSettings(context.ShellSettings).ConfigureDatabaseTableOptions();
-        if (string.IsNullOrWhiteSpace(shellSettings["DatabaseProvider"]))
+
+        // Always apply database settings from setup context properties when provided.
+        // The caller (controller/API) has already resolved preset vs. user-provided values.
+        if (context.Properties.TryGetValue(SetupConstants.DatabaseProvider, out var databaseProvider))
         {
-            shellSettings["DatabaseProvider"] = context.Properties.TryGetValue(SetupConstants.DatabaseProvider, out var databaseProvider) ? databaseProvider?.ToString() : string.Empty;
-            shellSettings["ConnectionString"] = context.Properties.TryGetValue(SetupConstants.DatabaseConnectionString, out var databaseConnectionString) ? databaseConnectionString?.ToString() : string.Empty;
-            shellSettings["TablePrefix"] = context.Properties.TryGetValue(SetupConstants.DatabaseTablePrefix, out var databaseTablePrefix) ? databaseTablePrefix?.ToString() : string.Empty;
-            shellSettings["Schema"] = context.Properties.TryGetValue(SetupConstants.DatabaseSchema, out var schema) ? schema?.ToString() : null;
+            shellSettings["DatabaseProvider"] = databaseProvider?.ToString() ?? string.Empty;
+        }
+
+        if (context.Properties.TryGetValue(SetupConstants.DatabaseConnectionString, out var databaseConnectionString))
+        {
+            shellSettings["ConnectionString"] = databaseConnectionString?.ToString() ?? string.Empty;
+        }
+
+        if (context.Properties.TryGetValue(SetupConstants.DatabaseTablePrefix, out var databaseTablePrefix))
+        {
+            shellSettings["TablePrefix"] = databaseTablePrefix?.ToString() ?? string.Empty;
+        }
+
+        if (context.Properties.TryGetValue(SetupConstants.DatabaseSchema, out var databaseSchema))
+        {
+            shellSettings["Schema"] = databaseSchema?.ToString();
         }
 
         if (shellSettings["DatabaseProvider"] == DatabaseProviderValue.Sqlite && string.IsNullOrEmpty(shellSettings["DatabaseName"]))
@@ -200,8 +216,10 @@ public class SetupService : ISetupService
 
         string executionId;
 
-        await using (var shellContext = await _shellContextFactory.CreateDescribedContextAsync(shellSettings, shellDescriptor))
+        try
         {
+            await using var shellContext = await _shellContextFactory.CreateDescribedContextAsync(shellSettings, shellDescriptor);
+
             await (await shellContext.CreateScopeAsync()).UsingServiceScopeAsync(async scope =>
             {
                 try
@@ -213,7 +231,7 @@ public class SetupService : ISetupService
                 catch (Exception e)
                 {
                     _logger.LogError(e, "An error occurred while initializing the datastore.");
-                    context.Errors.Add(string.Empty, S["An error occurred while initializing the datastore: {0}", e.Message]);
+                    context.Errors.Add(string.Empty, S["An error occurred while initializing the datastore."]);
                 }
             });
 
@@ -241,6 +259,12 @@ public class SetupService : ISetupService
 
                 context.Errors.Add(string.Empty, S["Unexpected error occurred while importing the recipe."]);
             }
+        }
+        catch (Exception e) when (!e.IsFatal())
+        {
+            _logger.LogError(e, "An error occurred while initializing the setup shell.");
+            context.Errors.Add(string.Empty, S["An error occurred while initializing the datastore."]);
+            return null;
         }
 
         // Reloading the shell context as the recipe has probably updated its features.

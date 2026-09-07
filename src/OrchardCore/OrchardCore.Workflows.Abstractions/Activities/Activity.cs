@@ -14,7 +14,15 @@ public abstract class Activity : Entity, IActivity
     public abstract LocalizedString Category { get; }
     public virtual bool HasEditor => true;
 
-    public abstract IEnumerable<Outcome> GetPossibleOutcomes(WorkflowExecutionContext workflowContext, ActivityContext activityContext);
+    public virtual ValueTask<IEnumerable<Outcome>> GetPossibleOutcomesAsync(WorkflowExecutionContext workflowContext, ActivityContext activityContext)
+    {
+        return ValueTask.FromResult(GetPossibleOutcomes(workflowContext, activityContext));
+    }
+
+    public virtual IEnumerable<Outcome> GetPossibleOutcomes(WorkflowExecutionContext workflowContext, ActivityContext activityContext)
+    {
+        return [];
+    }
 
     public virtual Task<bool> CanExecuteAsync(WorkflowExecutionContext workflowContext, ActivityContext activityContext)
     {
@@ -91,35 +99,29 @@ public abstract class Activity : Entity, IActivity
         return Task.CompletedTask;
     }
 
-    protected static Outcome Outcome(LocalizedString name)
-    {
-        return new Outcome(name);
-    }
+    protected static IEnumerable<Outcome> Outcome(params LocalizedString[] names)
+        => names.Select(s => new Outcome(s));
 
-    protected static IEnumerable<Outcome> Outcomes(params LocalizedString[] names)
-    {
-        return names.Select(x => new Outcome(x));
-    }
+    protected static ActivityExecutionResult Outcome(params string[] names)
+        => new ActivityExecutionResult(names);
 
-    protected static IEnumerable<Outcome> Outcomes(IEnumerable<LocalizedString> names)
-    {
-        return names.Select(x => new Outcome(x));
-    }
+    protected static ActivityExecutionResult Outcome(params IEnumerable<string> names)
+        => new ActivityExecutionResult(names);
 
-    protected static ActivityExecutionResult Outcomes(string name)
-    {
-        return new ActivityExecutionResult(new string[] { name });
-    }
+    [Obsolete("This methods is deprecated. Use Outcome(params LocalizedString[] names) instead.")]
+    protected static IEnumerable<Outcome> Outcomes(params LocalizedString[] names) => Outcome(names);
 
-    protected static ActivityExecutionResult Outcomes(params string[] names)
-    {
-        return new ActivityExecutionResult(names);
-    }
+    [Obsolete("This methods is deprecated. Use Outcome(params LocalizedString[] names) instead.")]
+    protected static IEnumerable<Outcome> Outcomes(IEnumerable<LocalizedString> names) => Outcome(names.ToArray());
 
-    protected static ActivityExecutionResult Outcomes(IEnumerable<string> names)
-    {
-        return new ActivityExecutionResult(names);
-    }
+    [Obsolete("This methods is deprecated. Use Outcome(params string[] names) instead.")]
+    protected static ActivityExecutionResult Outcomes(string name) => Outcome(name);
+
+    [Obsolete("This methods is deprecated. Use Outcome(params string[] names) instead.")]
+    protected static ActivityExecutionResult Outcomes(params string[] names) => Outcome(names);
+
+    [Obsolete("This methods is deprecated. Use Outcome(params string[] names) instead.")]
+    protected static ActivityExecutionResult Outcomes(IEnumerable<string> names) => Outcome(names.ToArray());
 
     protected static ActivityExecutionResult Halt()
     {

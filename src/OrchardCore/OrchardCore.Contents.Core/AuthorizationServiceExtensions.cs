@@ -18,13 +18,13 @@ public static class AuthorizationServiceExtensions
 
     public static Task<bool> AuthorizeContentTypeAsync(this IAuthorizationService service, ClaimsPrincipal user, Permission requiredPermission, string contentType, string owner = null)
     {
-        ArgumentNullException.ThrowIfNull(user);
-
         ArgumentNullException.ThrowIfNull(requiredPermission);
 
-        if (string.IsNullOrWhiteSpace(contentType))
+        ArgumentException.ThrowIfNullOrEmpty(contentType);
+        
+        if (user == null)
         {
-            throw new ArgumentException($"{nameof(contentType)} cannot be empty.");
+            return Task.FromResult(false);
         }
 
         var item = new ContentItem()
@@ -53,10 +53,7 @@ public static class AuthorizationServiceExtensions
         {
             var dynamicPermission = ContentTypePermissionsHelper.CreateDynamicPermission(contentTypePermission, contentTypeDefinition);
 
-            var contentItem = await contentManager.NewAsync(contentTypeDefinition.Name);
-            contentItem.Owner = user.FindFirstValue(ClaimTypes.NameIdentifier);
-
-            if (await service.AuthorizeAsync(user, dynamicPermission, contentItem))
+            if (await service.AuthorizeContentTypeAsync(user, dynamicPermission, contentTypeDefinition.Name, user.FindFirstValue(ClaimTypes.NameIdentifier)))
             {
                 return true;
             }

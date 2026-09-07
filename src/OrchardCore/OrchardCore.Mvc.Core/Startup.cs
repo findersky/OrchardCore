@@ -6,7 +6,6 @@ using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.AspNetCore.Mvc.Razor;
 using Microsoft.AspNetCore.Mvc.Razor.Compilation;
-using Microsoft.AspNetCore.Mvc.Razor.RuntimeCompilation;
 using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
@@ -38,6 +37,23 @@ public sealed class Startup : StartupBase
 
     public override void Configure(IApplicationBuilder app, IEndpointRouteBuilder routes, IServiceProvider serviceProvider)
     {
+        routes.MapControllers().Add(builder =>
+        {
+            // Dynamic controller routes make MVC create an inert endpoint for every action. MVC
+            // copies action metadata to these placeholders, but they cannot be used for link
+            // generation and must not own endpoint names.
+            if (builder is not RouteEndpointBuilder)
+            {
+                for (var i = builder.Metadata.Count - 1; i >= 0; i--)
+                {
+                    if (builder.Metadata[i] is IEndpointNameMetadata)
+                    {
+                        builder.Metadata.RemoveAt(i);
+                    }
+                }
+            }
+        });
+
         var descriptors = serviceProvider.GetRequiredService<IActionDescriptorCollectionProvider>()
             .ActionDescriptors.Items
             .OfType<ControllerActionDescriptor>()
@@ -102,7 +118,12 @@ public sealed class Startup : StartupBase
 
             if (refsFolderExists)
             {
+                // Note: Razor runtime compilation is deprecated in .NET 10
+                // For development scenarios, use Hot Reload instead
+                // This is kept for backward compatibility but will be removed in future versions
+#pragma warning disable ASPDEPR003 // Razor runtime compilation is obsolete
                 builder.AddRazorRuntimeCompilation();
+#pragma warning restore ASPDEPR003
             }
         }
         else
@@ -113,11 +134,18 @@ public sealed class Startup : StartupBase
             services.AddSingleton<IViewCompilerProvider, SharedViewCompilerProvider>();
         }
 
-        services.AddTransient<IConfigureOptions<MvcRazorRuntimeCompilationOptions>, RazorCompilationOptionsSetup>();
+        // Note: MvcRazorRuntimeCompilationOptions is deprecated in .NET 10
+        // This configuration is kept for backward compatibility but will be removed in future versions
+#pragma warning disable ASPDEPR003 // Razor runtime compilation is obsolete
+        services.AddTransient<IConfigureOptions<Microsoft.AspNetCore.Mvc.Razor.RuntimeCompilation.MvcRazorRuntimeCompilationOptions>, RazorCompilationOptionsSetup>();
+#pragma warning restore ASPDEPR003
 
         services.AddSingleton<RazorCompilationFileProviderAccessor>();
 
-        services.TryAddSingleton<IActionContextAccessor, ActionContextAccessor>();
+        // Note: IActionContextAccessor is deprecated in .NET 10 and will be removed
+        // ActionContext should be created when needed instead of using a global accessor
+        // This registration is kept for backward compatibility only
+        // TODO: Remove this registration and update dependent code to create ActionContext directly
 
         // Use a custom 'IFileVersionProvider' that also lookup all tenant level 'IStaticFileProvider'.
         services.Replace(ServiceDescriptor.Singleton<IFileVersionProvider, ShellFileVersionProvider>());

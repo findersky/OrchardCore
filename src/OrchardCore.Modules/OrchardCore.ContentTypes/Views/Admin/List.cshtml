@@ -1,7 +1,11 @@
 @model ListContentTypesViewModel
+@using OrchardCore.ContentTypes
+@using OrchardCore.Localization.Data
+@inject IDataLocalizer D
 
 <zone Name="Title"><h1>@RenderTitleSegments(T["Content Types"])</h1></zone>
 
+<div data-list-management data-client-side-search="true" data-single-result-action-mode="first" data-search-first-element-classes="border-top rounded-top">
 <div class="card mb-3 text-bg-theme position-sticky action-bar">
     <div class="card-body">
         <div class="row gx-3">
@@ -21,7 +25,7 @@
 <ul id="list-items" class="list-group">
     @foreach (var type in Model.Types)
     {
-        <li class="list-group-item" data-filter-value="@type.DisplayName" data-type-name="@type.Name">
+        <li class="list-group-item" data-filter-value="@D[type.DisplayName, DataLocalizationContext.ContentType]" data-type-name="@type.Name">
             @Html.DisplayFor(m => type)
         </li>
     }
@@ -29,6 +33,6 @@
 <div id="list-alert" class="alert alert-info d-none" role="alert">
     @T["<strong>Nothing here!</strong> Your search returned no results."]
 </div>
+</div>
 
-<script at="Foot" asp-name="list-items-filter"></script>
-
+<script asp-name="list-management" at="Foot"></script>

@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -92,8 +93,8 @@ public sealed class WorkflowController : Controller
 
         query = model.Options.Filter switch
         {
-            WorkflowFilter.Finished => query.Where(x => x.WorkflowStatus == (int)WorkflowStatus.Finished),
-            WorkflowFilter.Faulted => query.Where(x => x.WorkflowStatus == (int)WorkflowStatus.Faulted),
+            WorkflowFilter.Finished => query.Where(x => x.WorkflowStatus == WorkflowStatus.Finished),
+            WorkflowFilter.Faulted => query.Where(x => x.WorkflowStatus == WorkflowStatus.Faulted),
             _ => query,
         };
 
@@ -188,23 +189,29 @@ public sealed class WorkflowController : Controller
             activityDesignShapes.Add(await BuildActivityDisplayAsync(activityContext, workflowType.Id, blockingActivities.ContainsKey(activityContext.ActivityRecord.ActivityId), "Design"));
         }
 
-        var activitiesDataQuery = activityContexts.Select(x => new
+        var activitiesDataQuery = new List<object>();
+
+        foreach (var activityContext in activityContexts)
         {
-            Id = x.ActivityRecord.ActivityId,
-            x.ActivityRecord.X,
-            x.ActivityRecord.Y,
-            x.ActivityRecord.Name,
-            x.ActivityRecord.IsStart,
-            IsEvent = x.Activity.IsEvent(),
-            IsBlocking = workflow.BlockingActivities.Any(a => a.ActivityId == x.ActivityRecord.ActivityId),
-            Outcomes = x.Activity.GetPossibleOutcomes(workflowContext, x).ToArray(),
-        });
+            activitiesDataQuery.Add(new
+            {
+                Id = activityContext.ActivityRecord.ActivityId,
+                activityContext.ActivityRecord.X,
+                activityContext.ActivityRecord.Y,
+                activityContext.ActivityRecord.Name,
+                activityContext.ActivityRecord.IsStart,
+                IsEvent = activityContext.Activity.IsEvent(),
+                IsBlocking = workflow.BlockingActivities.Any(a => a.ActivityId == activityContext.ActivityRecord.ActivityId),
+                Outcomes = (await activityContext.Activity.GetPossibleOutcomesAsync(workflowContext, activityContext)).ToArray(),
+            });
+        }
+
         var workflowTypeData = new
         {
             workflowType.Id,
             workflowType.Name,
             workflowType.IsEnabled,
-            Activities = activitiesDataQuery.ToArray(),
+            Activities = activitiesDataQuery,
             workflowType.Transitions,
         };
 
@@ -299,7 +306,7 @@ public sealed class WorkflowController : Controller
             return Forbid();
         }
 
-        if (itemIds?.Count() > 0)
+        if (itemIds?.Any() == true)
         {
             var checkedEntries = await _session.Query<Workflow, WorkflowIndex>().Where(x => x.DocumentId.IsIn(itemIds)).ListAsync();
             switch (options.BulkAction)
@@ -307,6 +314,8 @@ public sealed class WorkflowController : Controller
                 case WorkflowBulkAction.None:
                     break;
                 case WorkflowBulkAction.Delete:
+                    var deletedWorkflowIds = new List<string>();
+
                     foreach (var entry in checkedEntries)
                     {
                         var workflow = await _workflowStore.GetAsync(entry.Id);
@@ -314,9 +323,15 @@ public sealed class WorkflowController : Controller
                         if (workflow != null)
                         {
                             await _workflowStore.DeleteAsync(workflow);
-                            await _notifier.SuccessAsync(H["Workflow {0} has been deleted.", workflow.Id]);
+                            deletedWorkflowIds.Add(workflow.Id.ToString(CultureInfo.InvariantCulture));
                         }
                     }
+
+                    if (deletedWorkflowIds.Count > 0)
+                    {
+                        await _notifier.SuccessAsync(H.Plural(deletedWorkflowIds.Count, "The workflow \"{1}\" has been deleted.", "The following workflows have been deleted: {1}.", string.Join(", ", deletedWorkflowIds)));
+                    }
+
                     break;
 
                 default:

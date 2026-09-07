@@ -11,11 +11,11 @@ In this article, you will learn how to use Orchard CMS as a decoupled CMS with t
 - Orchard Core's [code generation templates](../../getting-started/templates/README.md)
 - Knowledge of [getting started with Orchard Core CMS](../../getting-started/README.md)
 - Be familiar with C# and HTML.
-- Basic knowledge of Orchard Cms modules, e.g. creating content definition, creating content, executing recipes.
+- Basic knowledge of Orchard Core CMS modules, e.g. creating content definitions, creating content, and executing recipes.
 
 ### Create Orchard Core CMS Application
  
-- Create a new Orchard Core CMS Application and set up the default site using a `headless` recipe. Follow [create orchard cms application guide](https://docs.orchardcore.net/en/latest/docs/guides/create-cms-application/) to create a new Orchard Core website.
+- Create a new Orchard Core CMS application and set up the default site using a `headless` recipe. Follow the [Create an Orchard Core CMS website guide](https://docs.orchardcore.net/en/latest/docs/guides/create-cms-application/) to create a new Orchard Core website.
 - Alternatively, you can run the following commands to create a new Orchard Core application. 
 
 ```shell
@@ -31,7 +31,7 @@ dotnet sln add ./BlazorCms
 
 ![Setup Default Orchard Core site](./images/image-002.PNG)
 
-- Once the setup is complete, log in to the admin and create a new content type as following. (By navigating to `Content` -> `Content Definition` -> `Content Types`) 
+- Once the setup is complete, log in to the admin and create a new content type as following. (By navigating to `Design` -> `Content Definition` -> `Content Types`) 
     - Create a 'MarkdownPage' content type.
     - Add Parts 
         - TitlePart
@@ -39,7 +39,7 @@ dotnet sln add ./BlazorCms
         - MarkdownBodyPart.
 - Create a new content item and publish it.
 - Alternatively, you can import the following recipe to create the content definition and content item that we are using for this guide.
-- To import the recipe, log in to administration, and go to `Configuration` > `Import/Export` > `JSON Import`
+- To import the recipe, log in to administration, and go to `Tools` > `Deployments` > `JSON Import`
 
 ```json
 {
@@ -157,7 +157,7 @@ In this section, we will create a .NET Blazor application, as Razor Class librar
 - You can run the following commands to create a new Razor class library project.
 
 ```dotnetcli
-dotnet new razorclasslib -f net9.0 -o OCBlazorLib
+dotnet new razorclasslib -f net10.0 -o OCBlazorLib
 dotnet sln add ./OCBlazorLib
 dotnet add ./BlazorCms/BlazorCms.csproj reference ./OCBlazorLib/OCBlazorLib.csproj
 ```
@@ -190,7 +190,7 @@ Now, your project explorer should look like the image below.
                 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
                 <base href="/" />
                 <link rel="stylesheet" href="OrchardCore.Resources/Styles/bootstrap.min.css" />
-                <link rel="stylesheet" href="_content/OCBlazor.styles.css" />
+                <link rel="stylesheet" href="_content/BlazorCms/styles.css" />
                 <HeadOutlet />
             </head>
             
@@ -632,7 +632,7 @@ In our `OCBlazorLib` blazor Library project, Let's enrich our `/content` page to
 - In `OCBlazorLib.csproj` Add a NuGet package reference to `OrchardCore.ContentManagement`
 
 ```dotnetcli
-dotnet add ./OCBlazorLib/OCBlazorLib.csproj package OrchardCore.ContentManagement --version 2.1.7
+dotnet add ./OCBlazorLib/OCBlazorLib.csproj package OrchardCore.ContentManagement --version 3.0.1
 ```
 
 - Add the following `using` statements in `_Imports.razor`
@@ -776,23 +776,23 @@ One of the key features of Orchard Core is its multi-tenancy support. In this se
     
 ## Enable the tenant feature.
 
-In orchard core admin, go to `Configuration` -> `Features` and enable the `Tenants` feature.
+In orchard core admin, go to `Tools` -> `Features` and enable the `Tenants` feature.
 
 ![Enable tenants feature](./images/enable-tenants.jpg)
 
 ## Add the first tenant
 
-Navigate to `Multi tenancy` -> `Tenants` and add a new tenant with the following settings.
+Navigate to `Multi-Tenancy` -> `Tenants` and add a new tenant with the following settings.
 
 ![Create first tenant](./images/create-tenant.png)
 
 - Tenant name: FirstTenant
-- Url Prefix: tenant01
+- URL Prefix: tenant01
 - Recipe: Headless site
 
 ![Create first tenant](./images/first-tenant.png)
 
-Now setup the first tenant, by clicking on the `Setup` button.
+Now set up the first tenant by clicking the `Setup` button.
 
 ![Setup new tenant](./images/setup-first-tenant.png)
 
@@ -800,8 +800,8 @@ Now setup the first tenant, by clicking on the `Setup` button.
 
 After setup is finished, you can access the first tenant by navigating to `https://localhost:5001/tenant01`. Since Orchard listens to ```/``` (and on ```/tenant01/```), it presents the login screen. You can log in with the user you just created in the setup procedure.
 
-# The base url
-In App.razor in the razor class library that contains our Blazor App, we need to add the base url to the base tag. This is necessary because the Blazor App is served from a subpath of the Orchard Core application.
+# The base URL
+In App.razor in the Razor class library that contains our Blazor app, we need to add the base URL to the base tag. This is necessary because the Blazor app is served from a subpath of the Orchard Core application.
 
 ```razor
 <base href="/" />
@@ -858,13 +858,13 @@ The `NavigationManager` is injected into the App component and the base path is 
 > - Using the ShellScope (Context.Settings.RequestUrlPrefix)
 > - Using the settings of ISiteService (Site.BaseUrl). This can be set in the admin UI.
 
-The example contains a page with the url ```baseurl``` that demonstrates the various methods. 
+The example contains a page with the URL `baseurl` that demonstrates the various methods.
 
-![Base url retrievement](./images/base-url-page.png)
+![Base URL retrieval](./images/base-url-page.png)
 
 > NOTE:
 >
-> The base url can be specified as an absolute path, or as a relative path.
+> The base URL can be specified as an absolute path or as a relative path.
 >
 > NOTE:
 >
@@ -878,7 +878,7 @@ Now make sure the tenant 01 also imports the content type and content item, so w
 
 Import the following:
 
-Log in to administration, and go to `Configuration` > `Import/Export` > `JSON Import`
+Log in to administration, and go to `Tools` > `Deployments` > `JSON Import`
 
 ```json
 {

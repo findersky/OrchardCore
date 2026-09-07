@@ -5,8 +5,20 @@
 
 @{
     // ['fr-FR', 'en-US']
-    var supportedCultures = JConvert.SerializeObject(Model.Cultures.Where(x => x.Supported).Select(c => c.CultureInfo.Name).ToArray());
-    var allCultures = JConvert.SerializeObject(Model.Cultures.Select(c => new { Name = c.CultureInfo.Name, DisplayName = !string.IsNullOrEmpty(c.CultureInfo.DisplayName) ? c.CultureInfo.DisplayName : c.CultureInfo.NativeName, Supported = c.Supported }).ToArray());
+    var supportedCultures = JConvert.SerializeObject(Model.Cultures
+        .Where(x => x.Supported)
+        .Select(c => c.CultureInfo.Name)
+        .ToArray());
+    var allCultures = JConvert.SerializeObject(Model.Cultures
+        .Select(c => new
+        {
+            Name = c.CultureInfo.Name,
+            DisplayName = !string.IsNullOrEmpty(c.CultureInfo.DisplayName)
+                ? c.CultureInfo.DisplayName
+                : c.CultureInfo.NativeName,
+            Supported = c.Supported,
+        })
+        .ToArray(), JsonSerializerOptions.Default);
     var defaultCulture = Model.Cultures.FirstOrDefault(x => x.IsDefault).CultureInfo.Name;
     var selectedCulture = Model.Cultures.Except(Model.Cultures.Where(x => x.Supported)).First().CultureInfo.Name;
 }
@@ -18,7 +30,7 @@
 </script>
 
 <script type="text/x-template" id="options-table">
-    <div class="mb-3">
+    <div>
         <table class="table border-bottom">
             <thead>
                 <tr>
@@ -67,12 +79,20 @@
     </div>
 </script>
 
-<div id="@Html.IdFor(m => m)" class="field-editor field-editor-predefinedlist">
-
-    <div class="row">
-        <div class="col-xl-6">
-            <label class="form-label">@T["Define which cultures are supported by the site."]</label>
+<div class="ocat-wrapper">
+    <label class="ocat-label">@T["Define which cultures are supported by the site."]</label>
+    <div class="ocat-end">
+        <div id="@Html.IdFor(m => m)" class="field-editor field-editor-predefinedlist">
             <options-table :data="supportedCultures" :default-value="defaultCulture" :selectedCulture="selectedCulture" :list="allCultures"></options-table>
+        </div>
+    </div>
+</div>
+
+<div class="ocat-wrapper" asp-validation-class-for="FallBackToParentCultures">
+    <div class="ocat-end-offset">
+        <div class="form-check">
+            <input type="checkbox" class="form-check-input" asp-for="FallBackToParentCultures" />
+            <label class="form-check-label" asp-for="FallBackToParentCultures">@T["Fall back to parent culture(s)"]</label>
         </div>
     </div>
 </div>

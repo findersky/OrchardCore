@@ -1,6 +1,5 @@
 using OrchardCore.Data.Documents;
-using Format = OrchardCore.Media.Processing.Format;
-using ResizeMode = OrchardCore.Media.Processing.ResizeMode;
+using OrchardCore.Media.Core.Processing;
 
 namespace OrchardCore.Media.Models;
 
@@ -18,4 +17,5 @@ public class MediaProfile
     public Format Format { get; set; }
     public int Quality { get; set; }
     public string BackgroundColor { get; set; }
+    public bool AutoOrient { get; set; } = true;
 }

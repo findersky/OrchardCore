@@ -11,16 +11,16 @@ namespace OrchardCore.Tests.Extensions;
 
 public class ExtensionManagerTests
 {
-    private static readonly IHostEnvironment _hostingEnvironment
+    private static readonly IHostEnvironment s_hostingEnvironment
         = new StubHostingEnvironment();
 
-    private static readonly IApplicationContext _applicationContext
-        = new ModularApplicationContext(_hostingEnvironment, [new ModuleNamesProvider()]);
+    private static readonly IApplicationContext s_applicationContext
+        = new ModularApplicationContext(s_hostingEnvironment, [new ModuleNamesProvider()]);
 
-    private static readonly IFeaturesProvider _moduleFeatureProvider =
+    private static readonly IFeaturesProvider s_moduleFeatureProvider =
         new FeaturesProvider(new[] { new ThemeFeatureBuilderEvents() });
 
-    private static readonly IFeaturesProvider _themeFeatureProvider =
+    private static readonly IFeaturesProvider s_themeFeatureProvider =
         new FeaturesProvider(new[] { new ThemeFeatureBuilderEvents() });
 
     private readonly ExtensionManager _moduleScopedExtensionManager;
@@ -35,21 +35,21 @@ public class ExtensionManagerTests
             [new ExtensionDependencyStrategy()],
             [new ExtensionPriorityStrategy()],
             _moduleScopedTypeFeatureProvider,
-            _moduleFeatureProvider
+            s_moduleFeatureProvider
             );
 
         _themeScopedExtensionManager = CreateExtensionManager(
             [new ExtensionDependencyStrategy()],
             [new ExtensionPriorityStrategy()],
             new TypeFeatureProvider(),
-            _themeFeatureProvider
+            s_themeFeatureProvider
             );
 
         _moduleThemeScopedExtensionManager = CreateExtensionManager(
             [new ExtensionDependencyStrategy(), new ThemeExtensionDependencyStrategy()],
             [new ExtensionPriorityStrategy()],
             new TypeFeatureProvider(),
-            _themeFeatureProvider
+            s_themeFeatureProvider
             );
     }
 
@@ -76,7 +76,7 @@ public class ExtensionManagerTests
     }
 
     [Fact]
-    public void ShouldReturnExtension()
+    public void Return_Extension_Succeeds()
     {
         var extensions = _moduleThemeScopedExtensionManager.GetExtensions()
             .Where(e => e.Manifest.ModuleInfo.Category == "Test");
@@ -85,7 +85,7 @@ public class ExtensionManagerTests
     }
 
     [Fact]
-    public void ShouldReturnAllDependenciesIncludingFeatureForAGivenFeatureOrdered()
+    public void Return_AllDependenciesIncludingFeatureForAGivenFeatureOrdered_Succeeds()
     {
         var features = _moduleScopedExtensionManager.GetFeatureDependencies("Sample3");
 
@@ -96,7 +96,7 @@ public class ExtensionManagerTests
     }
 
     [Fact]
-    public void ShouldNotReturnFeaturesNotDependentOn()
+    public void Not_ReturnFeaturesNotDependentOn_Succeeds()
     {
         var features = _moduleScopedExtensionManager.GetFeatureDependencies("Sample2");
 
@@ -106,7 +106,7 @@ public class ExtensionManagerTests
     }
 
     [Fact]
-    public void GetDependentFeaturesShouldReturnAllFeaturesThatHaveADependencyOnAFeature()
+    public void GetDependentFeatures_Default_ReturnsAllFeaturesThatHaveADependencyOnAFeature()
     {
         var features = _moduleScopedExtensionManager.GetDependentFeatures("Sample1");
 
@@ -118,7 +118,7 @@ public class ExtensionManagerTests
     }
 
     [Fact]
-    public void GetFeaturesShouldReturnAllFeaturesOrderedByDependency()
+    public void GetFeatures_Default_ReturnsAllFeaturesOrderedByDependency()
     {
         var features = _moduleScopedExtensionManager.GetFeatures()
             .Where(f => f.Category == "Test" && !f.IsTheme());
@@ -131,9 +131,21 @@ public class ExtensionManagerTests
     }
 
     [Fact]
-    public void GetFeaturesWithAIdShouldReturnThatFeatureWithDependenciesOrdered()
+    public void GetFeatures_Default_OrdersMixedDirectionalDependencies()
     {
-        var features = _moduleScopedExtensionManager.GetFeatures(["Sample2"]);
+        var featureIds = _moduleScopedExtensionManager.GetFeatures()
+            .Where(f => f.Category == "Test" && !f.IsTheme())
+            .Select(f => f.Id)
+            .ToArray();
+
+        Assert.True(Array.IndexOf(featureIds, "Sample2") < Array.IndexOf(featureIds, "Sample3"));
+        Assert.True(Array.IndexOf(featureIds, "Sample3") < Array.IndexOf(featureIds, "Sample4"));
+    }
+
+    [Fact]
+    public void GetFeaturesWithAId_Default_ReturnsThatFeatureWithDependenciesOrdered()
+    {
+        var features = _moduleScopedExtensionManager.GetFeatures((IEnumerable<string>)["Sample2"]);
 
         Assert.Equal(2, features.Count());
         Assert.Equal("Sample1", features.ElementAt(0).Id);
@@ -141,9 +153,9 @@ public class ExtensionManagerTests
     }
 
     [Fact]
-    public void GetFeaturesWithAIdShouldReturnThatFeatureWithDependenciesOrderedWithNoDuplicates()
+    public void GetFeaturesWithAId_Default_ReturnsThatFeatureWithDependenciesOrderedWithNoDuplicates()
     {
-        var features = _moduleScopedExtensionManager.GetFeatures(["Sample2", "Sample3"]);
+        var features = _moduleScopedExtensionManager.GetFeatures((IEnumerable<string>)["Sample2", "Sample3"]);
 
         Assert.Equal(3, features.Count());
         Assert.Equal("Sample1", features.ElementAt(0).Id);
@@ -152,9 +164,9 @@ public class ExtensionManagerTests
     }
 
     [Fact]
-    public void GetFeaturesWithAIdShouldNotReturnFeaturesTheHaveADependencyOutsideOfGraph()
+    public void GetFeaturesWithAId_Default_DoesNotReturnFeaturesTheHaveADependencyOutsideOfGraph()
     {
-        var features = _moduleScopedExtensionManager.GetFeatures(["Sample4"]);
+        var features = _moduleScopedExtensionManager.GetFeatures((IEnumerable<string>)["Sample4"]);
 
         Assert.Equal(3, features.Count());
         Assert.Equal("Sample1", features.ElementAt(0).Id);
@@ -165,19 +177,46 @@ public class ExtensionManagerTests
     /* Theme Base Theme Dependencies */
 
     [Fact]
-    public void GetFeaturesShouldReturnCorrectThemeHierarchy()
+    public void GetFeatures_Default_ReturnsCorrectThemeHierarchy()
     {
-        var features = _themeScopedExtensionManager.GetFeatures(["DerivedThemeSample"]);
+        var features = _themeScopedExtensionManager.GetFeatures((IEnumerable<string>)["DerivedThemeSample"]);
 
         Assert.Equal(2, features.Count());
         Assert.Equal("BaseThemeSample", features.ElementAt(0).Id);
         Assert.Equal("DerivedThemeSample", features.ElementAt(1).Id);
     }
 
+    [Fact]
+    public void GetFeatures_ThemeWithAdditionalFeature_ReturnsMainThemeFeature()
+    {
+        var themeModule = new global::OrchardCore.Modules.Module("BaseThemeSample");
+        themeModule.ModuleInfo.Features.Add(
+            new global::OrchardCore.Modules.Manifest.FeatureAttribute { Id = "BaseThemeSample.Additional" });
+
+        var applicationContext = new TestApplicationContext(
+            new Application(s_hostingEnvironment, [themeModule]));
+        var featureBuilderEvents = new[] { new ThemeFeatureBuilderEvents() };
+        var extensionManager = CreateExtensionManager(
+            applicationContext,
+            [new ExtensionDependencyStrategy(), new ThemeExtensionDependencyStrategy()],
+            [new ExtensionPriorityStrategy()],
+            new TypeFeatureProvider(),
+            new FeaturesProvider(featureBuilderEvents),
+            new ThemeFeaturesProvider(featureBuilderEvents));
+
+        var features = extensionManager.GetFeatures()
+            .Where(feature => feature.Extension.Id == "BaseThemeSample")
+            .ToArray();
+
+        Assert.Contains(features, feature => feature.Id == "BaseThemeSample.Additional");
+        var themeFeature = Assert.Single(features, feature => feature.IsTheme());
+        Assert.Equal("BaseThemeSample", themeFeature.Id);
+    }
+
     /* Theme and Module Dependencies */
 
     [Fact]
-    public void GetFeaturesShouldReturnBothThemesAndModules()
+    public void GetFeatures_Default_ReturnsBothThemesAndModules()
     {
         var features = _moduleThemeScopedExtensionManager.GetFeatures()
             .Where(f => f.Category == "Test");
@@ -186,7 +225,7 @@ public class ExtensionManagerTests
     }
 
     [Fact]
-    public void GetFeaturesShouldReturnThemesAfterModules()
+    public void GetFeatures_Default_ReturnsThemesAfterModules()
     {
         var features = _moduleThemeScopedExtensionManager.GetFeatures()
             .Where(f => f.Category == "Test");
@@ -202,9 +241,9 @@ public class ExtensionManagerTests
     }
 
     [Fact]
-    public void GetFeaturesShouldReturnThemesAfterModulesWhenRequestingBoth()
+    public void GetFeatures_RequestingBoth_ReturnsThemesAfterModules()
     {
-        var features = _moduleThemeScopedExtensionManager.GetFeatures(["DerivedThemeSample", "Sample3"]);
+        var features = _moduleThemeScopedExtensionManager.GetFeatures((IEnumerable<string>)["DerivedThemeSample", "Sample3"]);
 
         Assert.Equal("Sample1", features.ElementAt(0).Id);
         Assert.Equal("Sample2", features.ElementAt(1).Id);
@@ -214,7 +253,7 @@ public class ExtensionManagerTests
     }
 
     [Fact]
-    public void ShouldReturnNotFoundExtensionInfoWhenNotFound()
+    public void Return_NotFound_Succeeds()
     {
         var extension = _moduleThemeScopedExtensionManager.GetExtension("NotFound");
 
@@ -224,9 +263,9 @@ public class ExtensionManagerTests
     /* The extension manager must populate the ITypeFeatureProvider correctly */
 
     [Fact]
-    public void TypeFeatureProviderIsPopulatedWithComponentTypes()
+    public void TypeFeatureProviderIsPopulatedWithComponentTypes_Default_Succeeds()
     {
-        var feature = _moduleScopedExtensionManager.GetFeatures(["Sample1"]).First();
+        var feature = _moduleScopedExtensionManager.GetFeatures((IEnumerable<string>)["Sample1"]).First();
         var types = _moduleScopedTypeFeatureProvider.GetTypesForFeature(feature);
 
         Assert.Equal(2, types.Count());
@@ -235,10 +274,10 @@ public class ExtensionManagerTests
     }
 
     [Fact]
-    public void TypeFeatureProviderTypeMustBeMappedToAllFeatures()
+    public void TypeFeatureProviderType_Default_BeMappedToAllFeatures()
     {
         // Types in modules that have no feature that matches the extension ID must be mapped to all features.
-        var features = _moduleScopedExtensionManager.GetFeatures(["Sample1", "Sample2", "Sample3", "Sample4"]);
+        var features = _moduleScopedExtensionManager.GetFeatures((IEnumerable<string>)["Sample1", "Sample2", "Sample3", "Sample4"]);
 
         foreach (var feature in features)
         {
@@ -249,10 +288,10 @@ public class ExtensionManagerTests
     }
 
     [Fact]
-    public void TypeFeatureProviderTypeMustBeMappedToExtensionFeature()
+    public void TypeFeatureProviderType_Default_BeMappedToExtensionFeature()
     {
         // Types in modules that have a feature that matches the extension ID must be mapped to that feature.
-        var feature = _moduleScopedExtensionManager.GetFeatures(["BaseThemeSample"]).First();
+        var feature = _moduleScopedExtensionManager.GetFeatures((IEnumerable<string>)["BaseThemeSample"]).First();
         var types = _moduleScopedTypeFeatureProvider.GetTypesForFeature(feature);
 
         Assert.Equal(2, types.Count());
@@ -261,9 +300,9 @@ public class ExtensionManagerTests
     }
 
     [Fact]
-    public void TypeFeatureProviderTypeMustBeSkipped()
+    public void TypeFeatureProviderType_Default_BeSkipped()
     {
-        var feature = _moduleScopedExtensionManager.GetFeatures(["Sample2"]).First();
+        var feature = _moduleScopedExtensionManager.GetFeatures((IEnumerable<string>)["Sample2"]).First();
         var types = _moduleScopedTypeFeatureProvider.GetTypesForFeature(feature);
 
         Assert.DoesNotContain(typeof(SkippedDependentType), types);
@@ -273,13 +312,32 @@ public class ExtensionManagerTests
         IExtensionDependencyStrategy[] extensionDependencyStrategies,
         IExtensionPriorityStrategy[] extensionPriorityStrategies,
         ITypeFeatureProvider typeFeatureProvider,
-        IFeaturesProvider featuresProvider)
+        params IFeaturesProvider[] featuresProviders)
+    {
+        return CreateExtensionManager(
+            s_applicationContext,
+            extensionDependencyStrategies,
+            extensionPriorityStrategies,
+            typeFeatureProvider,
+            featuresProviders);
+    }
+
+    private static ExtensionManager CreateExtensionManager(
+        IApplicationContext applicationContext,
+        IExtensionDependencyStrategy[] extensionDependencyStrategies,
+        IExtensionPriorityStrategy[] extensionPriorityStrategies,
+        ITypeFeatureProvider typeFeatureProvider,
+        params IFeaturesProvider[] featuresProviders)
     {
         var services = new ServiceCollection();
         services
-            .AddSingleton(_applicationContext)
-            .AddSingleton(typeFeatureProvider)
-            .AddSingleton(featuresProvider);
+            .AddSingleton(applicationContext)
+            .AddSingleton(typeFeatureProvider);
+
+        foreach (var featuresProvider in featuresProviders)
+        {
+            services.AddSingleton(featuresProvider);
+        }
 
         foreach (var extensionDependencyStrategy in extensionDependencyStrategies)
         {
@@ -294,5 +352,15 @@ public class ExtensionManagerTests
         var serviceProvider = services.BuildServiceProvider();
 
         return new ExtensionManager(serviceProvider, new NullLogger<ExtensionManager>());
+    }
+
+    private sealed class TestApplicationContext : IApplicationContext
+    {
+        public TestApplicationContext(Application application)
+        {
+            Application = application;
+        }
+
+        public Application Application { get; }
     }
 }

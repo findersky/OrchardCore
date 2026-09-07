@@ -7,10 +7,15 @@ namespace OrchardCore.Tests.Apis.GraphQL;
 public class RecentBlogPostsQueryTests
 {
     [Fact]
-    public async Task ShouldListBlogPostWhenCallingAQuery()
+    public async Task List_CallingAQuery_Succeeds()
     {
         using var context = new BlogContext();
         await context.InitializeAsync();
+
+        // Indexing of the content item happens in the deferred-task and may not be immediate available,
+        // so we wait until the indexing is done before querying.
+        await context.WaitForDeferredTasksAsync(TestContext.Current.CancellationToken);
+        await context.WaitForHttpBackgroundJobsAsync(TestContext.Current.CancellationToken);
 
         var blogPostContentItemId = await context
             .CreateContentItem("BlogPost", builder =>
@@ -28,7 +33,7 @@ public class RecentBlogPostsQueryTests
 
         // Indexing of the content item happens in the deferred-task and may not be immediate available,
         // so we wait until the indexing is done before querying.
-        await context.WaitForOutstandingDeferredTasksAsync(TestContext.Current.CancellationToken);
+        await context.WaitForDeferredTasksAsync(TestContext.Current.CancellationToken);
 
         var result = await context
             .GraphQLClient

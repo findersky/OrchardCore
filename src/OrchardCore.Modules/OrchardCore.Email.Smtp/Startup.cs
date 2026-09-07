@@ -5,6 +5,7 @@ using OrchardCore.DisplayManagement.Handlers;
 using OrchardCore.Email.Smtp.Drivers;
 using OrchardCore.Email.Smtp.Extensions;
 using OrchardCore.Email.Smtp.Services;
+using OrchardCore.Environment.Options;
 using OrchardCore.Environment.Shell.Configuration;
 
 namespace OrchardCore.Email.Smtp;
@@ -22,7 +23,9 @@ public sealed class Startup
     {
         services.AddSmtpEmailProvider()
             .AddSiteDisplayDriver<SmtpSettingsDisplayDriver>()
-            .AddTransient<IConfigureOptions<SmtpOptions>, SmtpOptionsConfiguration>();
+            .AddSignalOptionsChangeTokenSource<SmtpOptions>()
+            .AddTransient<IConfigureOptions<SmtpOptions>, SmtpOptionsConfiguration>()
+            .AddTransient<IPostConfigureOptions<DefaultSmtpOptions>, DefaultSmtpOptionsConfiguration>();
 
         services.Configure<DefaultSmtpOptions>(options =>
         {

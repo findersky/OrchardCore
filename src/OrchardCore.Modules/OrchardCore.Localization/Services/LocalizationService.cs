@@ -9,8 +9,14 @@ namespace OrchardCore.Localization.Services;
 /// </summary>
 public class LocalizationService : ILocalizationService
 {
-    private static readonly string _defaultCulture = CultureInfo.InstalledUICulture.Name;
-    private static readonly string[] _supportedCultures = [CultureInfo.InstalledUICulture.Name];
+    private static readonly string s_defaultCulture = CultureInfo.InstalledUICulture.Name;
+    private static readonly string[] s_supportedCultures = [CultureInfo.InstalledUICulture.Name];
+
+    private static readonly CultureInfo[] s_cultureAliases =
+    [
+        CultureInfo.GetCultureInfo("zh-CN"),
+        CultureInfo.GetCultureInfo("zh-TW")
+    ];
 
     private readonly ISiteService _siteService;
 
@@ -26,11 +32,14 @@ public class LocalizationService : ILocalizationService
     }
 
     /// <inheritdocs />
+    public bool FallBackToParentCultures => _localizationSettings.FallBackToParentCulture;
+
+    /// <inheritdocs />
     public async Task<string> GetDefaultCultureAsync()
     {
         await InitializeLocalizationSettingsAsync();
 
-        return _localizationSettings.DefaultCulture ?? _defaultCulture;
+        return _localizationSettings.DefaultCulture ?? s_defaultCulture;
     }
 
     /// <inheritdocs />
@@ -39,9 +48,19 @@ public class LocalizationService : ILocalizationService
         await InitializeLocalizationSettingsAsync();
 
         return _localizationSettings.SupportedCultures == null || _localizationSettings.SupportedCultures.Length == 0
-            ? _supportedCultures
+            ? s_supportedCultures
             : _localizationSettings.SupportedCultures
             ;
+    }
+
+    /// <inheritdocs />
+    public IEnumerable<CultureInfo> GetAllCulturesAndAliases()
+    {
+        var cultures = CultureInfo.GetCultures(CultureTypes.AllCultures)
+            .Union(s_cultureAliases)
+            .OrderBy(c => c.Name);
+
+        return cultures;
     }
 
     private async Task InitializeLocalizationSettingsAsync()

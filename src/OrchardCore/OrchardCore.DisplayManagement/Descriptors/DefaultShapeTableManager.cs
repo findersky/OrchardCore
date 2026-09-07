@@ -7,6 +7,8 @@ using OrchardCore.DisplayManagement.Extensions;
 using OrchardCore.Environment.Extensions;
 using OrchardCore.Environment.Extensions.Features;
 using OrchardCore.Environment.Shell;
+using OrchardCore.Locking;
+using OrchardCore.Modules;
 
 namespace OrchardCore.DisplayManagement.Descriptors;
 
@@ -20,29 +22,24 @@ public class DefaultShapeTableManager : IShapeTableManager
 
     // FeatureShapeDescriptors are identical across tenants so they can be reused statically. Each shape table will
     // create a unique list of these per tenant.
-    private static readonly ConcurrentDictionary<string, FeatureShapeDescriptor> _shapeDescriptors = new();
+    private static readonly ConcurrentDictionary<string, FeatureShapeDescriptor> s_shapeDescriptors = new();
 
-    private static readonly object _syncLock = new();
+    private static readonly object s_syncLock = new();
 
     // Singleton cache to hold a tenant's theme ShapeTable.
-    private readonly IDictionary<string, ShapeTable> _shapeTableCache;
+    private readonly IDictionary<string, Task<ShapeTable>> _shapeTableCache;
 
     private readonly IServiceProvider _serviceProvider;
-    private readonly ILogger _logger;
-    private readonly SemaphoreSlim _semaphore;
 
     public DefaultShapeTableManager(
-        [FromKeyedServices(nameof(DefaultShapeTableManager))] IDictionary<string, ShapeTable> shapeTableCache,
-        IServiceProvider serviceProvider,
-        ILogger<DefaultShapeTableManager> logger)
+        [FromKeyedServices(nameof(DefaultShapeTableManager))] IDictionary<string, Task<ShapeTable>> shapeTableCache,
+        IServiceProvider serviceProvider)
     {
         _shapeTableCache = shapeTableCache;
         _serviceProvider = serviceProvider;
-        _semaphore = new SemaphoreSlim(1, 1);
-        _logger = logger;
     }
 
-    public async Task<ShapeTable> GetShapeTableAsync(string themeId)
+    public Task<ShapeTable> GetShapeTableAsync(string themeId)
     {
         // This method is intentionally not awaited since most calls
         // are from cache.
@@ -51,63 +48,73 @@ public class DefaultShapeTableManager : IShapeTableManager
             return shapeTable;
         }
 
-        await _semaphore.WaitAsync();
-        try
-        {
-            if (_shapeTableCache.TryGetValue(themeId ?? DefaultThemeIdKey, out shapeTable))
-            {
-                return shapeTable;
-            }
+        return GetShapeTableInternalAsync(themeId);
+    }
 
-            return await BuildShapeTableAsync(themeId);
-        }
-        finally
+    private async Task<ShapeTable> GetShapeTableInternalAsync(string themeId)
+    {
+        // Use a local lock to avoid multiple concurrent builds of the same shape table. Using the ILocalLock
+        // avoids holding on to a semaphore for the whole application lifetime.
+        var localLock = _serviceProvider.GetRequiredService<ILocalLock>();
+
+        using var locker = await localLock.AcquireLockAsync(nameof(DefaultShapeTableManager));
+
+        if (_shapeTableCache.TryGetValue(themeId ?? DefaultThemeIdKey, out var shapeTable))
         {
-            _semaphore.Release();
+            return shapeTable.Result;
         }
+
+        return await BuildShapeTableAsync(themeId);
     }
 
     private async Task<ShapeTable> BuildShapeTableAsync(string themeId)
     {
-        _logger.LogInformation("Start building shape table for {Theme}", themeId);
-
         // These services are resolved lazily since they are only required when initializing the shape tables
         // during the first request. And binding strategies would be expensive to build since this service is called many times
         // per request.
 
+        var logger = _serviceProvider.GetRequiredService<ILogger<DefaultShapeTableManager>>();
         var hostingEnvironment = _serviceProvider.GetRequiredService<IHostEnvironment>();
         var bindingStrategies = _serviceProvider.GetRequiredService<IEnumerable<IShapeTableProvider>>();
         var shellFeaturesManager = _serviceProvider.GetRequiredService<IShellFeaturesManager>();
         var extensionManager = _serviceProvider.GetRequiredService<IExtensionManager>();
         var typeFeatureProvider = _serviceProvider.GetRequiredService<ITypeFeatureProvider>();
 
+        if (logger.IsEnabled(LogLevel.Information))
+        {
+            logger.LogInformation("Start building shape table for {Theme}", themeId);
+        }
+
         HashSet<string> excludedFeatures;
 
         // Here we don't use a lock for thread safety but for atomicity.
-        lock (_syncLock)
+        lock (s_syncLock)
         {
-            excludedFeatures = new HashSet<string>(_shapeDescriptors.Select(kv => kv.Value.Feature.Id));
+            excludedFeatures = new HashSet<string>(s_shapeDescriptors.Select(kv => kv.Value.Feature.Id));
         }
 
         var shapeDescriptors = new Dictionary<string, FeatureShapeDescriptor>();
 
         foreach (var bindingStrategy in bindingStrategies)
         {
-            var strategyFeature = typeFeatureProvider.GetFeatureForDependency(bindingStrategy.GetType());
+            var requiredFeatureIds = RequireFeaturesAttribute.GetRequiredFeatureNamesForType(bindingStrategy.GetType());
 
-            var builder = new ShapeTableBuilder(strategyFeature, excludedFeatures);
-            await bindingStrategy.DiscoverAsync(builder);
-            var builtAlterations = builder.BuildAlterations();
+            foreach (var strategyFeature in typeFeatureProvider.GetFeaturesForDependency(bindingStrategy.GetType()))
+            {
+                var builder = new ShapeTableBuilder(strategyFeature, excludedFeatures);
+                await bindingStrategy.DiscoverAsync(builder);
+                var builtAlterations = builder.BuildAlterations();
 
-            BuildDescriptors(bindingStrategy, builtAlterations, shapeDescriptors);
+                BuildDescriptors(bindingStrategy, builtAlterations, shapeDescriptors, requiredFeatureIds);
+            }
         }
 
         // Here we don't use a lock for thread safety but for atomicity.
-        lock (_syncLock)
+        lock (s_syncLock)
         {
             foreach (var kv in shapeDescriptors)
             {
-                _shapeDescriptors[kv.Key] = kv.Value;
+                s_shapeDescriptors[kv.Key] = kv.Value;
             }
         }
 
@@ -121,16 +128,16 @@ public class DefaultShapeTableManager : IShapeTableManager
             enabledAndOrderedFeatureIds.Add(hostingEnvironment.ApplicationName);
         }
 
-        var descriptors = _shapeDescriptors
+        var descriptors = s_shapeDescriptors
             .Where(sd => enabledAndOrderedFeatureIds.Contains(sd.Value.Feature.Id))
+            .Where(sd => sd.Value.RequiredFeatureIds.Count == 0 || sd.Value.RequiredFeatureIds.All(enabledAndOrderedFeatureIds.Contains))
             .Where(sd => IsModuleOrRequestedTheme(extensionManager, sd.Value.Feature, themeId))
             .OrderBy(sd => enabledAndOrderedFeatureIds.IndexOf(sd.Value.Feature.Id))
             .GroupBy(sd => sd.Value.ShapeType, StringComparer.OrdinalIgnoreCase)
             .Select(group => new ShapeDescriptorIndex
             (
                 shapeType: group.Key,
-                alterationKeys: group.Select(kv => kv.Key),
-                descriptors: _shapeDescriptors
+                alterations: group.Select(kv => kv.Value)
             ))
             .ToList();
 
@@ -140,9 +147,12 @@ public class DefaultShapeTableManager : IShapeTableManager
             bindings: descriptors.SelectMany(sd => sd.Bindings).ToFrozenDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase)
         );
 
-        _logger.LogInformation("Done building shape table for {Theme}", themeId);
+        if (logger.IsEnabled(LogLevel.Information))
+        {
+            logger.LogInformation("Done building shape table for {Theme}", themeId);
+        }
 
-        _shapeTableCache[themeId ?? DefaultThemeIdKey] = shapeTable;
+        _shapeTableCache[themeId ?? DefaultThemeIdKey] = Task.FromResult(shapeTable);
 
         return shapeTable;
     }
@@ -150,7 +160,8 @@ public class DefaultShapeTableManager : IShapeTableManager
     private static void BuildDescriptors(
         IShapeTableProvider bindingStrategy,
         IEnumerable<ShapeAlteration> builtAlterations,
-        Dictionary<string, FeatureShapeDescriptor> shapeDescriptors)
+        Dictionary<string, FeatureShapeDescriptor> shapeDescriptors,
+        IList<string> requiredFeatureIds)
     {
         var alterationSets = builtAlterations.GroupBy(a => a.Feature.Id + a.ShapeType);
 
@@ -162,12 +173,13 @@ public class DefaultShapeTableManager : IShapeTableManager
                 + firstAlteration.Feature.Id
                 + firstAlteration.ShapeType.ToLower();
 
-            if (!_shapeDescriptors.ContainsKey(key))
+            if (!s_shapeDescriptors.ContainsKey(key))
             {
                 var descriptor = new FeatureShapeDescriptor
                 (
                     firstAlteration.Feature,
-                    firstAlteration.ShapeType
+                    firstAlteration.ShapeType,
+                    requiredFeatureIds
                 );
 
                 foreach (var alteration in alterations)

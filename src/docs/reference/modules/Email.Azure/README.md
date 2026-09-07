@@ -4,7 +4,7 @@ This module adds Email providers for sending emails through [Azure Communication
 
 ## **Azure Communication Services** Provider Configuration
 
-Enabling this module will introduce a new tab labeled **Azure Communication Services** within the email settings, allowing you to configure the service. To access these settings, navigate to `Configuration` → `Settings` → `Email` and click on the **Azure Communication Services** tab. The following are the available settings
+Enabling this module will introduce a new tab labeled **Azure Communication Services** within the email settings, allowing you to configure the service. To access these settings, navigate to `Settings` → `Communication` → `Email` and click on the **Azure Communication Services** tab. The following are the available settings
 
 | Setting            | Description                                                                                                           |
 |--------------------|-----------------------------------------------------------------------------------------------------------------------|
@@ -28,3 +28,32 @@ For more information about configurations, please refer to [Configuration](../Co
 
 !!! note
     Configuration of the **Default Azure Communication Services** provider is not possible through Admin Settings. Utilize the configuration provider for the necessary setup. The provider will appear only if the configuration exists.
+
+## Runtime updates
+
+`AzureEmailOptions` is populated from tenant site settings, so custom services that need to observe admin changes without reloading the tenant should inject `IOptionsMonitor<AzureEmailOptions>` instead of `IOptions<AzureEmailOptions>`. The module registers a signal-backed `IOptionsChangeTokenSource<AzureEmailOptions>`, and when the Azure email settings are updated Orchard Core invalidates the relevant option monitors after the YesSql session commits successfully, allowing running nodes to rebuild the provider options from the committed settings.
+
+## Recipe Configuration
+
+Azure email settings can be configured using the `Settings` recipe step:
+
+```json
+{
+  "steps": [
+    {
+      "name": "settings",
+      "AzureEmailSettings": {
+        "IsEnabled": true,
+        "DefaultSender": "noreply@example.com",
+        "ConnectionString": "endpoint=https://your-resource.communication.azure.com/;accesskey=..."
+      }
+    }
+  ]
+}
+```
+
+| Property           | Type    | Description                                                       |
+|--------------------|---------|-------------------------------------------------------------------|
+| `IsEnabled`        | Boolean | Whether the Azure email provider is enabled.                      |
+| `DefaultSender`    | String  | The default sender email address.                                 |
+| `ConnectionString` | String  | The Azure Communication Services connection string. **Required.** |

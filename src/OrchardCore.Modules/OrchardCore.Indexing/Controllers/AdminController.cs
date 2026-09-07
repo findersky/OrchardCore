@@ -12,6 +12,7 @@ using OrchardCore.DisplayManagement.ModelBinding;
 using OrchardCore.DisplayManagement.Notify;
 using OrchardCore.Indexing.Core;
 using OrchardCore.Indexing.Models;
+using OrchardCore.Indexing.ViewModels;
 using OrchardCore.Infrastructure.Entities;
 using OrchardCore.Navigation;
 using OrchardCore.Routing;
@@ -83,14 +84,32 @@ public sealed class AdminController : Controller
             routeData.Values.TryAdd(_optionsSearch, options.Search);
         }
 
-        var viewModel = new ListSourcedEntitiesViewModel<IndexProfileKey, ModelEntry<IndexProfile>, IndexingEntityOptions>
+        var sourceGroups = _indexingOptions.Sources
+            .Select(x => new
+            {
+                Source = x.Key,
+                ProviderName = x.Value.ProviderName,
+            })
+            .OrderBy(x => x.ProviderName, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(x => x.Source.Type)
+            .GroupBy(x => x.ProviderName, StringComparer.OrdinalIgnoreCase)
+            .Select(group => new IndexSourceGroupViewModel
+            {
+                ProviderName = group.Key,
+                ProviderDisplayName = _indexingOptions.Providers.TryGetValue(group.Key, out var provider)
+                    ? provider.DisplayName?.Value ?? group.Key
+                    : group.Key,
+                Sources = group.Select(x => x.Source).ToArray(),
+            })
+            .ToArray();
+
+        var viewModel = new AdminIndexViewModel
         {
             Models = [],
             Options = options,
             Pager = await shapeFactory.PagerAsync(pager, result.Count, routeData),
-            Sources = _indexingOptions.Sources.Select(x => x.Key)
-            .OrderBy(x => x.ProviderName)
-            .ThenBy(x => x.Type),
+            Sources = sourceGroups.SelectMany(x => x.Sources).ToArray(),
+            SourceGroups = sourceGroups,
         };
 
         foreach (var record in result.Models)
@@ -196,9 +215,16 @@ public sealed class AdminController : Controller
         {
             foreach (var error in validate.Errors)
             {
-                foreach (var memberName in error.MemberNames)
+                if (error.MemberNames.Any())
                 {
-                    ModelState.TryAddModelError(memberName, error.ErrorMessage);
+                    foreach (var memberName in error.MemberNames)
+                    {
+                        ModelState.TryAddModelError(memberName, error.ErrorMessage);
+                    }
+                }
+                else
+                {
+                    ModelState.TryAddModelError(string.Empty, error.ErrorMessage);
                 }
             }
         }
@@ -290,9 +316,16 @@ public sealed class AdminController : Controller
         {
             foreach (var error in validate.Errors)
             {
-                foreach (var memberName in error.MemberNames)
+                if (error.MemberNames.Any())
                 {
-                    ModelState.TryAddModelError(memberName, error.ErrorMessage);
+                    foreach (var memberName in error.MemberNames)
+                    {
+                        ModelState.TryAddModelError(memberName, error.ErrorMessage);
+                    }
+                }
+                else
+                {
+                    ModelState.TryAddModelError(string.Empty, error.ErrorMessage);
                 }
             }
         }
@@ -438,10 +471,11 @@ public sealed class AdminController : Controller
             return RedirectToAction(nameof(Index));
         }
 
+        await _indexProfileManager.ResetAsync(indexProfile);
+        await _indexProfileManager.UpdateAsync(indexProfile);
+
         if (await indexManager.RebuildAsync(indexProfile))
         {
-            await _indexProfileManager.ResetAsync(indexProfile);
-            await _indexProfileManager.UpdateAsync(indexProfile);
             await _indexProfileManager.SynchronizeAsync(indexProfile);
 
             await _notifier.SuccessAsync(H["An index has been rebuilt successfully. The synchronizing process was triggered in the background."]);
@@ -465,7 +499,7 @@ public sealed class AdminController : Controller
             return Forbid();
         }
 
-        if (itemIds?.Count() > 0)
+        if (itemIds?.Any() == true)
         {
             var indexManagers = new Dictionary<string, IIndexManager>();
 

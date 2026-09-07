@@ -6,13 +6,13 @@ namespace OrchardCore.Themes;
 public sealed class ResourceManagementOptionsConfiguration
     : IConfigureOptions<ResourceManagementOptions>
 {
-    private static readonly ResourceManifest _manifest;
+    private static readonly ResourceManifest s_manifest;
 
     static ResourceManagementOptionsConfiguration()
     {
-        _manifest = new ResourceManifest();
+        s_manifest = new ResourceManifest();
 
-        _manifest
+        s_manifest
             .DefineScript("theme-head")
             .SetUrl(
                 "~/OrchardCore.Themes/Scripts/theme-head/theme-head.min.js",
@@ -20,19 +20,18 @@ public sealed class ResourceManagementOptionsConfiguration
             )
             .SetVersion("1.0.0");
 
-        _manifest
+        s_manifest
             .DefineScript("theme-manager")
             .SetUrl(
                 "~/OrchardCore.Themes/Scripts/theme-manager/theme-manager.min.js",
                 "~/OrchardCore.Themes/Scripts/theme-manager/theme-manager.js"
             )
             .SetDependencies("theme-head")
-            .SetAttribute("type", "module")
             .SetVersion("1.0.0");
     }
 
     public void Configure(ResourceManagementOptions options)
     {
-        options.ResourceManifests.Add(_manifest);
+        options.ResourceManifests.Add(s_manifest);
     }
 }

@@ -21,14 +21,7 @@ public class FeatureAttributeTests : FeatureAttributeTests<FeatureAttribute>
     [Fact]
     public virtual void Default_Static_Consts()
     {
-        Assert.Empty(DefaultName);
-        Assert.Empty(DefaultCategory);
-        Assert.Equal(0, DefaultPriority);
-        Assert.Empty(DefaultDescription);
-        Assert.Empty(DefaultFeatureDependencies);
-        Assert.False(DefaultDefaultTenantOnly);
-        Assert.False(DefaultAlwaysEnabled);
-        Assert.Equal(GetArray(';', ',', ' '), ListDelims);
+        Assert.Equal(GetArray(';', ',', ' '), FeatureAttribute.ListDelimiters);
     }
 
     /// <summary>
@@ -71,6 +64,8 @@ public class FeatureAttributeTests : FeatureAttributeTests<FeatureAttribute>
 
         Assert.NotNull(feature.Dependencies);
         Assert.Equal(deps, feature.Dependencies);
+        Assert.Empty(feature.Before);
+        Assert.Empty(feature.After);
 
         Assert.Equal(defaultTenant, feature.DefaultTenantOnly);
         Assert.Equal(alwaysEnabled, feature.IsAlwaysEnabled);
@@ -118,6 +113,8 @@ public class FeatureAttributeTests : FeatureAttributeTests<FeatureAttribute>
 
         Assert.NotNull(feature.Dependencies);
         Assert.Equal(deps, feature.Dependencies);
+        Assert.Empty(feature.Before);
+        Assert.Empty(feature.After);
 
         Assert.Equal(defaultTenant, feature.DefaultTenantOnly);
         Assert.Equal(alwaysEnabled, feature.IsAlwaysEnabled);
@@ -134,7 +131,7 @@ public class FeatureAttributeTests : FeatureAttributeTests<FeatureAttribute>
         var id = LoremWords(1);
         var name = LoremWords(1);
         var category = LoremWords(1);
-        var priority = DefaultPriority + 1;
+        var priority = 1;
         var description = LoremWords(7);
         var deps = LoremWords(5).Split(' ');
         const bool defaultTenant = default;
@@ -170,6 +167,8 @@ public class FeatureAttributeTests : FeatureAttributeTests<FeatureAttribute>
 
         Assert.NotNull(feature.Dependencies);
         Assert.Equal(deps, feature.Dependencies);
+        Assert.Empty(feature.Before);
+        Assert.Empty(feature.After);
 
         Assert.Equal(defaultTenant, feature.DefaultTenantOnly);
         Assert.Equal(alwaysEnabled, feature.IsAlwaysEnabled);
@@ -270,7 +269,7 @@ public class FeatureAttributeTests : FeatureAttributeTests<FeatureAttribute>
         const bool alwaysEnabled = default;
         const bool enabledByDependencyOnly = default;
 
-        var priority = DefaultPriority;
+        var priority = 0;
         var expected = priority + 1;
 
         // TODO: TBD: also for attributes created using property initializers
@@ -335,7 +334,7 @@ public class FeatureAttributeTests : FeatureAttributeTests<FeatureAttribute>
         Assert.Equal(expected, bravo.Describe(alpha, alpha));
         Assert.Equal(expected, alpha.Describe(bravo, alpha));
         Assert.Equal(expected, alpha.Describe(alpha, bravo));
-        Assert.Equal(FeatureAttribute.DefaultDescription, alpha.Describe(alpha, alpha));
+        Assert.Empty(alpha.Describe(alpha, alpha));
     }
 
     /// <summary>
@@ -376,7 +375,21 @@ public class FeatureAttributeTests : FeatureAttributeTests<FeatureAttribute>
         Assert.Equal(expected, bravo.Categorize(alpha, alpha));
         Assert.Equal(expected, alpha.Categorize(bravo, alpha));
         Assert.Equal(expected, alpha.Categorize(alpha, bravo));
-        Assert.Equal(FeatureAttribute.Uncategorized, alpha.Categorize(alpha, alpha));
+        Assert.Equal("Uncategorized", alpha.Categorize(alpha, alpha));
+    }
+
+    [Fact]
+    public void Dependencies_Are_Independent_From_Before_And_After()
+    {
+        var feature = CreateFromFactory();
+
+        feature.Dependencies = ["Alpha", "Beta", "Alpha"];
+        feature.After = ["Gamma"];
+        feature.Before = ["Delta"];
+
+        Assert.Equal(["Alpha", "Beta"], feature.Dependencies);
+        Assert.Equal(["Gamma"], feature.After);
+        Assert.Equal(["Delta"], feature.Before);
     }
 
     /// <summary>
@@ -396,7 +409,7 @@ public class FeatureAttributeTests : FeatureAttributeTests<FeatureAttribute>
         var deps = LoremWords(5).Split(' ');
         var depString = string.Join(delim, deps);
 
-        var listDelims = FeatureAttribute.ListDelims;
+        var listDelims = FeatureAttribute.ListDelimiters;
 
         FeatureAttribute CreateForDeps(params string[] deps) => CreateFromArgs(
             FeatureString6Object3CtorClassifier,

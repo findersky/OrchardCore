@@ -1,0 +1,14 @@
+[
+  {
+    "action": "vite",
+    "name": "media-gallery",
+    "source": "Assets/media-gallery",
+    "tags": ["admin", "dashboard", "js"]
+  },
+  {
+    "action": "vite",
+    "name": "media-picker",
+    "source": "Assets/media-picker",
+    "tags": ["admin", "dashboard", "js"]
+  }
+]

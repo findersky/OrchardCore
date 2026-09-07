@@ -2,10 +2,10 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
-using Microsoft.AspNetCore.DataProtection;
 using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Logging;
-using OrchardCore.Settings;
+using Microsoft.Extensions.Options;
+using OrchardCore.Infrastructure;
 using OrchardCore.Sms.Models;
 
 namespace OrchardCore.Sms.Services;
@@ -16,35 +16,38 @@ public class TwilioSmsProvider : ISmsProvider
 
     public const string ProtectorName = "Twilio";
 
-    private static readonly JsonSerializerOptions _jsonSerializerOptions = new()
+    private static readonly JsonSerializerOptions s_jsonSerializerOptions = new()
     {
         PropertyNamingPolicy = SnakeCaseNamingPolicy.Instance,
     };
 
     public LocalizedString Name => S["Twilio"];
 
-    private readonly ISiteService _siteService;
-    private readonly IDataProtectionProvider _dataProtectionProvider;
+    private readonly IOptionsMonitor<TwilioOptions> _options;
     private readonly ILogger<TwilioSmsProvider> _logger;
     private readonly IHttpClientFactory _httpClientFactory;
 
     protected readonly IStringLocalizer S;
 
     public TwilioSmsProvider(
-        ISiteService siteService,
-        IDataProtectionProvider dataProtectionProvider,
+        IOptionsMonitor<TwilioOptions> options,
         ILogger<TwilioSmsProvider> logger,
         IHttpClientFactory httpClientFactory,
         IStringLocalizer<TwilioSmsProvider> stringLocalizer)
     {
-        _siteService = siteService;
-        _dataProtectionProvider = dataProtectionProvider;
+        _options = options;
         _logger = logger;
         _httpClientFactory = httpClientFactory;
         S = stringLocalizer;
     }
 
-    public async Task<SmsResult> SendAsync(SmsMessage message)
+    /// <summary>
+    /// Sends the specified SMS message by using the configured Twilio account.
+    /// </summary>
+    /// <param name="message">The SMS message to send.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>A <see cref="Result"/> describing whether Twilio accepted the SMS message.</returns>
+    public async Task<Result> SendAsync(SmsMessage message, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(message);
 
@@ -60,41 +63,49 @@ public class TwilioSmsProvider : ISmsProvider
 
         try
         {
-            var settings = await GetSettingsAsync();
+            var settings = _options.CurrentValue;
+
+            var senderNumber = settings.PhoneNumber;
+
+            if (!string.IsNullOrEmpty(message.From))
+            {
+                senderNumber = message.From;
+            }
+
             var data = new List<KeyValuePair<string, string>>
             {
-                new ("From", settings.PhoneNumber),
+                new ("From", senderNumber),
                 new ("To", message.To),
                 new ("Body", message.Body),
             };
 
             var client = GetHttpClient(settings);
-            var response = await client.PostAsync($"{settings.AccountSID}/Messages.json", new FormUrlEncodedContent(data));
+            var response = await client.PostAsync($"{settings.AccountSID}/Messages.json", new FormUrlEncodedContent(data), cancellationToken);
 
             if (response.IsSuccessStatusCode)
             {
-                var result = await response.Content.ReadFromJsonAsync<TwilioMessageResponse>(_jsonSerializerOptions);
+                var result = await response.Content.ReadFromJsonAsync<TwilioMessageResponse>(s_jsonSerializerOptions, cancellationToken);
 
                 if (string.Equals(result.Status, "sent", StringComparison.OrdinalIgnoreCase) ||
                     string.Equals(result.Status, "queued", StringComparison.OrdinalIgnoreCase))
                 {
-                    return SmsResult.Success;
+                    return Result.Success();
                 }
 
                 _logger.LogError("Twilio service was unable to send SMS messages. Error, code: {ErrorCode}, message: {ErrorMessage}", result.ErrorCode, result.ErrorMessage);
             }
 
-            return SmsResult.Failed(S["SMS message was not send."]);
+            return Result.Failed(S["The SMS message has not been sent."]);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Twilio service was unable to send SMS messages.");
 
-            return SmsResult.Failed(S["SMS message was not send. Error: {0}", ex.Message]);
+            return Result.Failed(S["The SMS message has not been sent. Error: {0}", ex.Message]);
         }
     }
 
-    private HttpClient GetHttpClient(TwilioSettings settings)
+    private HttpClient GetHttpClient(TwilioOptions settings)
     {
         var token = $"{settings.AccountSID}:{settings.AuthToken}";
         var base64Token = Convert.ToBase64String(Encoding.ASCII.GetBytes(token));
@@ -104,27 +115,5 @@ public class TwilioSmsProvider : ISmsProvider
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", base64Token);
 
         return client;
-    }
-
-    private TwilioSettings _settings;
-
-    private async Task<TwilioSettings> GetSettingsAsync()
-    {
-        if (_settings == null)
-        {
-            var settings = await _siteService.GetSettingsAsync<TwilioSettings>();
-
-            var protector = _dataProtectionProvider.CreateProtector(ProtectorName);
-
-            // It is important to create a new instance of `TwilioSettings` privately to hold the plain auth-token value.
-            _settings = new TwilioSettings
-            {
-                PhoneNumber = settings.PhoneNumber,
-                AccountSID = settings.AccountSID,
-                AuthToken = settings.AuthToken == null ? null : protector.Unprotect(settings.AuthToken),
-            };
-        }
-
-        return _settings;
     }
 }

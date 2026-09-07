@@ -8,7 +8,7 @@ namespace OrchardCore.Tests.Apis.ContentManagement.DeploymentPlans;
 public class ContentStepLuceneQueryTests
 {
     [Fact]
-    public async Task ShouldUpdateLuceneIndexesOnImport()
+    public async Task Update_LuceneIndexesOnImport_Succeeds()
     {
         using var context = new BlogPostDeploymentContext();
 
@@ -33,10 +33,7 @@ public class ContentStepLuceneQueryTests
         data.Add(secondContentItem);
 
         await context.PostRecipeAsync(recipe);
-
-        // Indexing of the content item happens in the deferred-task and may not be immediate available,
-        // so we wait until the indexing is done before querying.
-        await context.WaitForOutstandingDeferredTasksAsync(TestContext.Current.CancellationToken);
+        await context.WaitForHttpBackgroundJobsAsync(TestContext.Current.CancellationToken);
 
         // Test
         var result = await context

@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Localization;
 using OrchardCore.DisplayManagement.ModelBinding;
 using OrchardCore.Email;
+using OrchardCore.Mvc.Core.Utilities;
 using OrchardCore.Users.Models;
 using OrchardCore.Users.Services;
 using OrchardCore.Workflows.Abstractions.Models;
@@ -16,6 +17,7 @@ namespace OrchardCore.Users.Workflows.Activities;
 
 public class RegisterUserTask : TaskActivity<RegisterUserTask>
 {
+    private static readonly string s_emailConfirmationControllerName = typeof(Controllers.EmailConfirmationController).ControllerName();
     private readonly IUserService _userService;
     private readonly UserManager<IUser> _userManager;
     private readonly IWorkflowExpressionEvaluator _expressionEvaluator;
@@ -81,9 +83,7 @@ public class RegisterUserTask : TaskActivity<RegisterUserTask>
 
     // Returns the possible outcomes of this activity.
     public override IEnumerable<Outcome> GetPossibleOutcomes(WorkflowExecutionContext workflowContext, ActivityContext activityContext)
-    {
-        return Outcomes(S["Done"], S["Valid"], S["Invalid"]);
-    }
+        => Outcome(S["Done"], S["Valid"], S["Invalid"]);
 
     // This is the heart of the activity and actually performs the work to be done.
     public override async Task<ActivityExecutionResult> ExecuteAsync(WorkflowExecutionContext workflowContext, ActivityContext activityContext)
@@ -91,7 +91,7 @@ public class RegisterUserTask : TaskActivity<RegisterUserTask>
         var email = GetPropertyFromContextOrForm(workflowContext, "Email");
         if (string.IsNullOrWhiteSpace(email))
         {
-            return Outcomes("Done", "Invalid");
+            return Outcome("Done", "Invalid");
         }
 
         var userName = GetPropertyFromContextOrForm(workflowContext, "UserName") ?? email.Replace('@', '+');
@@ -99,15 +99,15 @@ public class RegisterUserTask : TaskActivity<RegisterUserTask>
 
         if (user == null)
         {
-            return Outcomes("Done", "Invalid");
+            return Outcome("Done", "Invalid");
         }
 
         if (SendConfirmationEmail && !await SendConfirmationEmailAsync(user, workflowContext, email))
         {
-            return Outcomes("Done", "Invalid");
+            return Outcome("Done", "Invalid");
         }
 
-        return Outcomes("Done", "Valid");
+        return Outcome("Done", "Valid");
     }
 
     private string GetPropertyFromContextOrForm(WorkflowExecutionContext context, string key)
@@ -151,7 +151,10 @@ public class RegisterUserTask : TaskActivity<RegisterUserTask>
     {
         var code = await _userManager.GenerateEmailConfirmationTokenAsync(user);
 
-        var uri = _linkGenerator.GetUriByAction(_httpContextAccessor.HttpContext, "ConfirmEmail", "Registration",
+        var uri = _linkGenerator.GetUriByAction(
+            _httpContextAccessor.HttpContext,
+            nameof(Controllers.EmailConfirmationController.ConfirmEmail),
+            s_emailConfirmationControllerName,
             new { area = UserConstants.Features.Users, userId = user.UserId, code });
 
         context.Properties["EmailConfirmationUrl"] = uri;
@@ -169,10 +172,7 @@ public class RegisterUserTask : TaskActivity<RegisterUserTask>
             {
                 foreach (var error in result.Errors)
                 {
-                    foreach (var errorMessage in error.Value)
-                    {
-                        updater.ModelState.TryAddModelError(error.Key, errorMessage);
-                    }
+                    updater.ModelState.TryAddModelError(error.Key, error.Message.Value);
                 }
             }
 

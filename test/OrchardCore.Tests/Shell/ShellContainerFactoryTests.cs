@@ -45,7 +45,7 @@ public class ShellContainerFactoryTests
     }
 
     [Fact]
-    public async Task CanRegisterDefaultServiceWithFeatureInfo()
+    public async Task CanRegisterDefaultServiceWithFeatureInfo_Default_Succeeds()
     {
         var shellBlueprint = CreateBlueprint();
 
@@ -63,7 +63,7 @@ public class ShellContainerFactoryTests
     }
 
     [Fact]
-    public async Task CanReplaceDefaultServiceWithCustomService()
+    public async Task CanReplaceDefaultServiceWithCustomService_Default_Succeeds()
     {
         var shellBlueprint = CreateBlueprint();
 
@@ -83,7 +83,7 @@ public class ShellContainerFactoryTests
     }
 
     [Fact]
-    public async Task HostServiceLifeTimesShouldBePreserved()
+    public async Task HostServiceLifeTimes_Default_BePreserved()
     {
         var shellBlueprint = CreateBlueprint();
         var container = (await _shellContainerFactory
@@ -122,7 +122,7 @@ public class ShellContainerFactoryTests
     }
 
     [Fact]
-    public async Task WhenTwoHostSingletons_GetServices_Returns_HostAndShellServices()
+    public async Task Default_TwoHostSingletonsTwoHostSingletonsGetServicesReturnsHostAndShellServicesSucceeds_Succeeds()
     {
         var shellBlueprint = CreateBlueprint();
         AddStartup(shellBlueprint, typeof(ServicesOfTheSameTypeStartup));
@@ -138,7 +138,7 @@ public class ShellContainerFactoryTests
     }
 
     [Fact]
-    public async Task WhenHostSingletonAndScoped_GetServices_Returns_CorrectImplementations()
+    public async Task Default_HostSingletonAndScopedHostSingletonAndScopedGetServicesReturnsCorrectImplementationsSucceeds_Succeeds()
     {
         var shellBlueprint = CreateBlueprint();
 
@@ -155,7 +155,7 @@ public class ShellContainerFactoryTests
     }
 
     [Fact]
-    public async Task AssignsTypeToMultipleFeatures()
+    public async Task AssignsTypeToMultipleFeatures_Default_Succeeds()
     {
         var shellBlueprint = CreateBlueprint();
 
@@ -170,6 +170,24 @@ public class ShellContainerFactoryTests
 
         Assert.IsType<TestService>(container.GetRequiredService(typeof(ITestService)));
         Assert.Equal(expectedFeatureInfos, typeFeatureProvider.GetFeaturesForDependency(typeof(TestService)));
+    }
+
+    [Fact]
+    public async Task RawStartupIsAssignedToCorrectFeature_Default_Succeeds()
+    {
+        var shellBlueprint = CreateBlueprint();
+
+        var expectedFeatureInfo = AddStartup(shellBlueprint, typeof(Startup));
+
+        var container = (await _shellContainerFactory
+            .CreateContainerAsync(_uninitializedDefaultShell, shellBlueprint))
+            .CreateScope()
+            .ServiceProvider;
+
+        var typeFeatureProvider = _applicationServiceProvider.GetService<ITypeFeatureProvider>();
+
+        Assert.IsType<TestService>(container.GetRequiredService(typeof(ITestService)));
+        Assert.Same(expectedFeatureInfo, typeFeatureProvider.GetFeatureForDependency(typeof(TestService)));
     }
 
     private static ShellBlueprint CreateBlueprint()
@@ -281,6 +299,17 @@ public class ShellContainerFactoryTests
             services.AddSingleton<ITwoHostSingletonsOfTheSameType, ShellSingletonOfTheSametype>();
             services.AddTransient<ITwoHostSingletonsOfTheSameType, ShellTransientOfTheSametype>();
             services.AddScoped<ITwoHostSingletonsOfTheSameType, ShellScopedOfTheSametype>();
+        }
+    }
+
+    // A raw startup class that is not derived from StartupBase. Must be named Startup.
+    private sealed class Startup
+    {
+#pragma warning disable CA1822 // Mark members as static
+        public void ConfigureServices(IServiceCollection services)
+#pragma warning restore CA1822 // Mark members as static
+        {
+            services.AddScoped<ITestService, TestService>();
         }
     }
 }

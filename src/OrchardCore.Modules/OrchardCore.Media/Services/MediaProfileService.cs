@@ -1,11 +1,11 @@
-using Format = OrchardCore.Media.Processing.Format;
-using ResizeMode = OrchardCore.Media.Processing.ResizeMode;
+using OrchardCore.Media.Core.Processing;
+using OrchardCore.Media.Models;
 
 namespace OrchardCore.Media.Services;
 
 public class MediaProfileService : IMediaProfileService
 {
-    private static readonly IDictionary<string, string> _nullProfile = new Dictionary<string, string>();
+    private static readonly IDictionary<string, string> s_nullProfile = new Dictionary<string, string>();
     private readonly MediaProfilesManager _mediaProfilesManager;
 
     public MediaProfileService(MediaProfilesManager mediaProfilesManager)
@@ -20,42 +20,49 @@ public class MediaProfileService : IMediaProfileService
         if (mediaProfilesDocument.MediaProfiles.TryGetValue(name, out var mediaProfile))
         {
             var commands = new Dictionary<string, string>();
+
             if (mediaProfile.Width > 0)
             {
-                commands["width"] = mediaProfile.Width.ToString();
+                commands[MediaCommands.WidthCommand] = mediaProfile.Width.ToString();
             }
 
             if (mediaProfile.Height > 0)
             {
-                commands["height"] = mediaProfile.Height.ToString();
+                commands[MediaCommands.HeightCommand] = mediaProfile.Height.ToString();
             }
 
             if (mediaProfile.Mode != ResizeMode.Undefined)
             {
-                commands["rmode"] = mediaProfile.Mode.ToString().ToLower();
+                commands[MediaCommands.ResizeModeCommand] = mediaProfile.Mode.ToString().ToLower();
             }
 
             if (mediaProfile.Format != Format.Undefined)
             {
-                commands["format"] = mediaProfile.Format.ToString().ToLower();
+                commands[MediaCommands.FormatCommand] = mediaProfile.Format.ToString().ToLower();
             }
 
             if (mediaProfile.Quality > 0 && mediaProfile.Quality < 100)
             {
-                commands["quality"] = mediaProfile.Quality.ToString();
+                commands[MediaCommands.QualityCommand] = mediaProfile.Quality.ToString();
             }
 
             if (!string.IsNullOrEmpty(mediaProfile.BackgroundColor))
             {
-                commands["bgcolor"] = mediaProfile.BackgroundColor;
+                commands[MediaCommands.BackgroundColorCommand] = mediaProfile.BackgroundColor;
+            }
+
+            // include only when the profile explicitly disables auto orient, otherwise it will be enabled by default. Keep urls shorter when auto orient is enabled.
+            if (!mediaProfile.AutoOrient)
+            {
+                commands[MediaCommands.AutoOrientCommand] = "false";
             }
 
             return commands;
         }
         else
         {
-            return _nullProfile;
-
+            return s_nullProfile;
         }
     }
 }
+

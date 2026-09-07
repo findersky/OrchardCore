@@ -42,6 +42,7 @@ using OrchardCore.Feeds;
 using OrchardCore.Indexing;
 using OrchardCore.Liquid;
 using OrchardCore.Lists.Settings;
+using OrchardCore.Localization.Data;
 using OrchardCore.Modules;
 using OrchardCore.Mvc.Core.Utilities;
 using OrchardCore.Navigation;
@@ -145,6 +146,7 @@ public sealed class Startup : StartupBase
         services.AddPermissionProvider<ContentTypePermissions>();
         services.AddScoped<IAuthorizationHandler, ContentTypeAuthorizationHandler>();
         services.AddShapeTableProvider<Shapes>();
+        services.AddShapeTableProvider<AdminDashboardShapeTableProvider>();
         services.AddNavigationProvider<AdminMenu>();
         services.AddScoped<IContentDisplayDriver, ContentsDriver>();
         services.AddScoped<IContentHandler, ContentsHandler>();
@@ -293,5 +295,16 @@ public sealed class FeedsStartup : StartupBase
     {
         // Feeds
         services.AddScoped<IFeedItemBuilder, CommonFeedItemBuilder>();
+    }
+}
+
+[RequireFeatures("OrchardCore.DataLocalization")]
+public sealed class DataLocalizationStartup : StartupBase
+{
+    public override void ConfigureServices(IServiceCollection services)
+    {
+        services.AddScoped<ILocalizationDataProvider, ContentTypeDataLocalizationProvider>();
+        services.AddScoped<ILocalizationDataProvider, ContentFieldDataLocalizationProvider>();
+        services.AddScoped<ILocalizationDataProvider, ContentTypesAdminNodeDataLocalizationProvider>();
     }
 }

@@ -1,6 +1,6 @@
 namespace OrchardCore.Localization.Data.Tests;
 
-public class DataLocalizerTests
+public class DataLocalizerTests : IDisposable
 {
     private readonly Mock<IDataTranslationProvider> _dataTranslationProviderMock;
     private readonly IMemoryCache _memoryCache;
@@ -19,7 +19,7 @@ public class DataLocalizerTests
     }
 
     [Fact]
-    public void LocalizerReturnsTranslationsFromProvidedDictionary()
+    public void LocalizerReturnsTranslationsFromProvidedDictionary_Default_Succeeds()
     {
         // Arrange
         SetupDictionary("fr", new CultureDictionaryRecord("Hello", _context, new[] { "Bonjour" }));
@@ -36,7 +36,7 @@ public class DataLocalizerTests
     }
 
     [Fact]
-    public void LocalizerReturnsOriginalTextIfTranslationsDoesntExistInProvidedDictionary()
+    public void LocalizerReturnsOriginalTextIfTranslationsDoesntExistInProvidedDictionary_Default_Succeeds()
     {
         // Arrange
         SetupDictionary("fr", new CultureDictionaryRecord("Hello", _context, new[] { "Bonjour" }));
@@ -53,7 +53,7 @@ public class DataLocalizerTests
     }
 
     [Fact]
-    public void LocalizerReturnsOriginalTextIfDictionaryIsEmpty()
+    public void LocalizerReturnsOriginalTextIfDictionaryIsEmpty_Default_Succeeds()
     {
         // Arrange
         SetupDictionary("fr", Array.Empty<CultureDictionaryRecord>());
@@ -70,7 +70,7 @@ public class DataLocalizerTests
     }
 
     [Fact]
-    public void LocalizerFallbacksToParentCultureIfTranslationDoesntExistInSpecificCulture()
+    public void LocalizerFallbacksToParentCultureIfTranslationDoesntExistInSpecificCulture_Default_Succeeds()
     {
         // Arrange
         SetupDictionary("fr", new CultureDictionaryRecord("Hello", _context, new[] { "Bonjour" }));
@@ -89,7 +89,7 @@ public class DataLocalizerTests
     }
 
     [Fact]
-    public void LocalizerReturnsTranslationFromSpecificCultureIfItExists()
+    public void LocalizerReturnsTranslationFromSpecificCultureIfItExists_Default_Succeeds()
     {
         // Arrange
         SetupDictionary("fr", new CultureDictionaryRecord("Hello", _context, new[] { "Bonjour" }));
@@ -108,7 +108,7 @@ public class DataLocalizerTests
     }
 
     [Fact]
-    public void LocalizerReturnsFormattedTranslation()
+    public void LocalizerReturnsFormattedTranslation_Default_Succeeds()
     {
         // Arrange
         SetupDictionary("cs", new CultureDictionaryRecord("The page (ID:{0}) was deleted.", _context, new[] { "Stránka (ID:{0}) byla smazána." }));
@@ -127,7 +127,7 @@ public class DataLocalizerTests
     [Theory]
     [InlineData(false, "hello", "hello")]
     [InlineData(true, "hello", "مرحبا")]
-    public void LocalizerFallBackToParentCultureIfFallBackToParentUICulturesIsTrue(bool fallBackToParentCulture, string resourceKey, string expected)
+    public void LocalizerFallBackToParentCultureIfFallBackToParentUICulturesIsTrue_Default_Succeeds(bool fallBackToParentCulture, string resourceKey, string expected)
     {
         // Arrange
         SetupDictionary("ar", new CultureDictionaryRecord("hello", _context, new[] { "مرحبا" }));
@@ -147,7 +147,7 @@ public class DataLocalizerTests
     [Theory]
     [InlineData(false, new[] { "مدونة", "منتج" })]
     [InlineData(true, new[] { "مدونة", "منتج", "قائمة", "صفحة", "مقالة" })]
-    public void LocalizerReturnsGetAllStrings(bool includeParentCultures, string[] expected)
+    public void LocalizerReturnsGetAllStrings_Default_Succeeds(bool includeParentCultures, string[] expected)
     {
         // Arrange
         SetupDictionary("ar", new CultureDictionaryRecord[]
@@ -176,6 +176,8 @@ public class DataLocalizerTests
         // Assert
         Assert.Equal(expected.Length, translations.Length);
     }
+
+    public void Dispose() => _memoryCache?.Dispose();
 
     private static IMemoryCache GetMemoryCache()
     {

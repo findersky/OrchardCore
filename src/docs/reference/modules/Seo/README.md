@@ -17,13 +17,38 @@ Starting at version 1.7, the feature of creating a robots.txt file via site sett
     Disallow: /Admin/
         This directive specifies that web robots should not access the /admin directory, which is commonly used for administrative purposes.
 
-These default settings aim to provide a basic configuration that ensures search engines can access the necessary files and directories while restricting access to sensitive areas of the site. However, website owners can modify these settings according to their specific requirements by navigating to the admin dashboard then **Configuration** >> **Settings** >> **SEO**.
+These default settings aim to provide a basic configuration that ensures search engines can access the necessary files and directories while restricting access to sensitive areas of the site. However, website owners can modify these settings according to their specific requirements by navigating to the admin dashboard then **Settings** → **Search** → **Search Engine Optimization** → **Robots**.
 
 !!! note
     If the [Sitemaps](../Sitemaps/README.md) feature is enabled, all sitemap indexes and sitemaps are added to the `robots.txt` by default.
 
 !!! warning
     If the site's [filesystem](../Tenants/README.md#static-file-provider-feature) contains a `robots.txt`, this file will take precedence and the site settings to generate the files will be ignored.
+
+## Recipe Configuration
+
+SEO settings can be configured using the `Settings` recipe step:
+
+```json
+{
+  "steps": [
+    {
+      "name": "settings",
+      "RobotsSettings": {
+        "AllowAllAgents": true,
+        "DisallowAdmin": true,
+        "AdditionalRules": "Disallow: /private/"
+      }
+    }
+  ]
+}
+```
+
+| Property          | Type    | Description                                                   |
+|-------------------|---------|---------------------------------------------------------------|
+| `AllowAllAgents`  | Boolean | Whether to allow all user agents. Default: `true`.            |
+| `DisallowAdmin`   | Boolean | Whether to disallow crawling the admin area. Default: `true`. |
+| `AdditionalRules` | String  | Additional custom rules appended to the robots.txt file.      |
 
 ## Video
 

@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.IO.Compression;
+using System.Net.Mime;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Dapper;
@@ -13,6 +14,7 @@ using Microsoft.Extensions.Options;
 using OrchardCore.Admin;
 using OrchardCore.Deployment;
 using OrchardCore.Deployment.Core.Services;
+using OrchardCore.FileStorage;
 using OrchardCore.DisplayManagement;
 using OrchardCore.DisplayManagement.ModelBinding;
 using OrchardCore.DisplayManagement.Notify;
@@ -47,6 +49,7 @@ public sealed class WorkflowTypeController : Controller
     private readonly IUpdateModelAccessor _updateModelAccessor;
     private readonly IShapeFactory _shapeFactory;
     private readonly JsonSerializerOptions _documentJsonSerializerOptions;
+    private readonly ITempDirectoryProvider _tempDirectoryProvider;
 
     internal readonly IStringLocalizer S;
     internal readonly IHtmlLocalizer H;
@@ -66,6 +69,7 @@ public sealed class WorkflowTypeController : Controller
         IStringLocalizer<WorkflowTypeController> stringLocalizer,
         IHtmlLocalizer<WorkflowTypeController> htmlLocalizer,
         IUpdateModelAccessor updateModelAccessor,
+        ITempDirectoryProvider tempDirectoryProvider,
         IOptions<DocumentJsonSerializerOptions> jsonSerializerOptions)
     {
         _pagerOptions = pagerOptions.Value;
@@ -79,6 +83,7 @@ public sealed class WorkflowTypeController : Controller
         _notifier = notifier;
         _updateModelAccessor = updateModelAccessor;
         _shapeFactory = shapeFactory;
+        _tempDirectoryProvider = tempDirectoryProvider;
         S = stringLocalizer;
         H = htmlLocalizer;
         _documentJsonSerializerOptions = jsonSerializerOptions.Value.SerializerOptions;
@@ -179,7 +184,7 @@ public sealed class WorkflowTypeController : Controller
             return Forbid();
         }
 
-        if (itemIds?.Count() > 0)
+        if (itemIds?.Any() == true)
         {
             var checkedEntries = await _session.Query<WorkflowType, WorkflowTypeIndex>()
                 .Where(x => x.DocumentId.IsIn(itemIds)).ListAsync();
@@ -191,6 +196,8 @@ public sealed class WorkflowTypeController : Controller
                     return await ExportWorkflows(itemIds.ToArray());
 
                 case WorkflowTypeBulkAction.Delete:
+                    var deletedWorkflowTypeNames = new List<string>();
+
                     foreach (var entry in checkedEntries)
                     {
                         var workflowType = await _workflowTypeStore.GetAsync(entry.Id);
@@ -198,9 +205,15 @@ public sealed class WorkflowTypeController : Controller
                         if (workflowType != null)
                         {
                             await _workflowTypeStore.DeleteAsync(workflowType);
-                            await _notifier.SuccessAsync(H["Workflow {0} has been deleted.", workflowType.Name]);
+                            deletedWorkflowTypeNames.Add(workflowType.Name);
                         }
                     }
+
+                    if (deletedWorkflowTypeNames.Count > 0)
+                    {
+                        await _notifier.SuccessAsync(H.Plural(deletedWorkflowTypeNames.Count, "The workflow \"{1}\" has been deleted.", "The following workflows have been deleted: {1}.", string.Join(", ", deletedWorkflowTypeNames)));
+                    }
+
                     break;
 
                 default:
@@ -405,23 +418,28 @@ public sealed class WorkflowTypeController : Controller
             activityDesignShapes.Add(await BuildActivityDisplay(activityContext, index++, id, newLocalId, "Design"));
         }
 
-        var activitiesDataQuery = activityContexts.Select(x => new
+        var activitiesDataQuery = new List<object>();
+
+        foreach (var activityContext in activityContexts)
         {
-            Id = x.ActivityRecord.ActivityId,
-            x.ActivityRecord.X,
-            x.ActivityRecord.Y,
-            x.ActivityRecord.Name,
-            x.ActivityRecord.IsStart,
-            IsEvent = x.Activity.IsEvent(),
-            Outcomes = x.Activity.GetPossibleOutcomes(workflowContext, x).ToArray(),
-        });
+            activitiesDataQuery.Add(new
+            {
+                Id = activityContext.ActivityRecord.ActivityId,
+                activityContext.ActivityRecord.X,
+                activityContext.ActivityRecord.Y,
+                activityContext.ActivityRecord.Name,
+                activityContext.ActivityRecord.IsStart,
+                IsEvent = activityContext.Activity.IsEvent(),
+                Outcomes = (await activityContext.Activity.GetPossibleOutcomesAsync(workflowContext, activityContext)).ToArray(),
+            });
+        }
 
         var workflowTypeData = new
         {
             workflowType.Id,
             workflowType.Name,
             workflowType.IsEnabled,
-            Activities = activitiesDataQuery.ToArray(),
+            Activities = activitiesDataQuery,
             workflowType.Transitions,
         };
 
@@ -559,7 +577,7 @@ public sealed class WorkflowTypeController : Controller
 
     private async Task<IActionResult> ExportWorkflows(params long[] itemIds)
     {
-        using var fileBuilder = new TemporaryFileBuilder();
+        using var fileBuilder = new TemporaryFileBuilder(_tempDirectoryProvider.GetRootDirectory());
         var archiveFileName = fileBuilder.Folder + ".zip";
         var recipeDescriptor = new RecipeDescriptor();
         var deploymentPlanResult = new DeploymentPlanResult(fileBuilder, recipeDescriptor);
@@ -574,7 +592,7 @@ public sealed class WorkflowTypeController : Controller
             ? workflowTypes.FirstOrDefault().Name
             : S["Workflow Types"];
 
-        return new PhysicalFileResult(archiveFileName, "application/zip")
+        return new PhysicalFileResult(archiveFileName, MediaTypeNames.Application.Zip)
         {
             FileDownloadName = packageName + ".zip",
         };

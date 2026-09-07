@@ -6,6 +6,8 @@ using OrchardCore.DisplayManagement.Theming;
 using OrchardCore.Environment.Extensions;
 using OrchardCore.Localization;
 using OrchardCore.Tests.Stubs;
+using Microsoft.Extensions.Options;
+using Moq;
 
 namespace OrchardCore.Tests.DisplayManagement;
 
@@ -14,6 +16,7 @@ public class DefaultDisplayManagerTests
     private readonly ShapeTable _defaultShapeTable;
     private readonly TestShapeBindingsDictionary _additionalBindings;
     private readonly IServiceProvider _serviceProvider;
+    private readonly ShapeRenderingOptions _shapeRenderingOptions = new();
 
     public DefaultDisplayManagerTests()
     {
@@ -28,6 +31,8 @@ public class DefaultDisplayManagerTests
 
         serviceCollection.AddScoped<IThemeManager, ThemeManager>();
         serviceCollection.AddScoped<IHtmlDisplay, DefaultHtmlDisplay>();
+        serviceCollection.AddScoped<IDisplayHelper, DisplayHelper>();
+        serviceCollection.AddScoped<IShapeFactory, DefaultShapeFactory>();
         serviceCollection.AddScoped<IShapeTableManager, TestShapeTableManager>();
         serviceCollection.AddScoped<IShapeBindingResolver, TestShapeBindingResolver>();
         serviceCollection.AddScoped<IShapeDisplayEvents, TestDisplayEvents>();
@@ -36,9 +41,11 @@ public class DefaultDisplayManagerTests
         serviceCollection.AddTransient(typeof(IStringLocalizer<>), typeof(StringLocalizer<>));
 
         serviceCollection.AddLogging();
+        serviceCollection.AddOptions();
 
         serviceCollection.AddSingleton(_defaultShapeTable);
         serviceCollection.AddSingleton(_additionalBindings);
+        serviceCollection.AddSingleton(Mock.Of<IOptionsMonitor<ShapeRenderingOptions>>(x => x.CurrentValue == _shapeRenderingOptions));
         serviceCollection.AddWebEncoders();
 
         _serviceProvider = serviceCollection.BuildServiceProvider();
@@ -73,16 +80,17 @@ public class DefaultDisplayManagerTests
         }
     }
 
-    private static DisplayContext CreateDisplayContext(Shape shape)
+    private DisplayContext CreateDisplayContext(Shape shape)
     {
         return new DisplayContext
         {
             Value = shape,
+            ServiceProvider = _serviceProvider,
         };
     }
 
     [Fact]
-    public async Task RenderSimpleShape()
+    public async Task RenderSimpleShape_Default_Succeeds()
     {
         var displayManager = _serviceProvider.GetService<IHtmlDisplay>();
 
@@ -105,7 +113,7 @@ public class DefaultDisplayManagerTests
     }
 
     [Fact]
-    public async Task RenderIShapeBindingResolverProvidedShapes()
+    public async Task RenderIShapeBindingResolverProvidedShapes_Default_Succeeds()
     {
         var displayManager = _serviceProvider.GetService<IHtmlDisplay>();
 
@@ -127,7 +135,7 @@ public class DefaultDisplayManagerTests
     }
 
     [Fact]
-    public async Task RenderPreCalculatedShape()
+    public async Task RenderPreCalculatedShape_Default_Succeeds()
     {
         var displayManager = _serviceProvider.GetService<IHtmlDisplay>();
 
@@ -155,7 +163,7 @@ public class DefaultDisplayManagerTests
     }
 
     [Fact]
-    public async Task IShapeBindingResolverProvidedShapesDoesNotOverrideShapeDescriptor()
+    public async Task IShapeBindingResolverProvidedShapesDoesNotOverrideShapeDescriptor_Default_Succeeds()
     {
         var displayManager = _serviceProvider.GetService<IHtmlDisplay>();
 
@@ -196,7 +204,7 @@ public class DefaultDisplayManagerTests
     }
 
     [Fact]
-    public async Task RenderFallbackShape()
+    public async Task RenderFallbackShape_Default_Succeeds()
     {
         var displayManager = _serviceProvider.GetService<IHtmlDisplay>();
 
@@ -219,7 +227,7 @@ public class DefaultDisplayManagerTests
     }
 
     [Fact]
-    public async Task AddAlternatesOnDisplaying()
+    public async Task AddAlternatesOnDisplaying_Default_Succeeds()
     {
         var displayManager = _serviceProvider.GetService<IHtmlDisplay>();
 
@@ -254,7 +262,7 @@ public class DefaultDisplayManagerTests
     }
 
     [Fact]
-    public async Task AddAlternatesOnProcessing()
+    public async Task AddAlternatesOnProcessing_Default_Succeeds()
     {
         var displayManager = _serviceProvider.GetService<IHtmlDisplay>();
 
@@ -289,7 +297,7 @@ public class DefaultDisplayManagerTests
     }
 
     [Fact]
-    public async Task RenderAlternateShapeExplicitly()
+    public async Task RenderAlternateShapeExplicitly_Default_Succeeds()
     {
         var displayManager = _serviceProvider.GetService<IHtmlDisplay>();
 
@@ -317,7 +325,7 @@ public class DefaultDisplayManagerTests
     }
 
     [Fact]
-    public async Task RenderAlternateShapeByMostRecentlyAddedMatchingAlternate()
+    public async Task RenderAlternateShapeByMostRecentlyAddedMatchingAlternate_Default_Succeeds()
     {
         var displayManager = _serviceProvider.GetService<IHtmlDisplay>();
 
@@ -350,7 +358,113 @@ public class DefaultDisplayManagerTests
     }
 
     [Fact]
-    public async Task ShapeDescriptorDisplayingAndDisplayedAreCalled()
+    public async Task RenderShapeTemplateComments_Enabled_Succeeds()
+    {
+        _shapeRenderingOptions.WriteShapeDebugInformation = true;
+
+        try
+        {
+            var displayManager = _serviceProvider.GetService<IHtmlDisplay>();
+
+            var shape = new Shape();
+            shape.Metadata.Type = "Foo";
+
+            var descriptor = new ShapeDescriptor
+            {
+                ShapeType = "Foo",
+            };
+            descriptor.Bindings["Foo"] = new ShapeBinding
+            {
+                BindingName = "Foo",
+                BindingSource = "Views/Foo.cshtml",
+                BindingAsync = ctx => Task.FromResult<IHtmlContent>(new HtmlString("Hi there!")),
+            };
+            AddShapeDescriptor(descriptor);
+
+            var result = await displayManager.ExecuteAsync(CreateDisplayContext(shape));
+
+            Assert.Equal("<!--shape-start type:Foo bindings:Foo => Views/Foo.cshtml (razor) -->Hi there!<!--shape-end type:Foo -->", result.ToString());
+            Assert.Equal("Hi there!", shape.Metadata.ChildContent.ToString());
+        }
+        finally
+        {
+            _shapeRenderingOptions.WriteShapeDebugInformation = false;
+        }
+    }
+
+    [Fact]
+    public async Task RenderAlternateShapeTemplateCommentsUseSelectedBinding_Enabled_Succeeds()
+    {
+        _shapeRenderingOptions.WriteShapeDebugInformation = true;
+
+        try
+        {
+            var displayManager = _serviceProvider.GetService<IHtmlDisplay>();
+
+            var shape = new Shape();
+            shape.Metadata.Type = "Foo";
+            shape.Metadata.Alternates.Add("Foo__Alternate");
+
+            var descriptor = new ShapeDescriptor
+            {
+                ShapeType = "Foo",
+            };
+            descriptor.Bindings["Foo"] = new ShapeBinding
+            {
+                BindingName = "Foo",
+                BindingSource = "Views/Foo.cshtml",
+                BindingAsync = ctx => Task.FromResult<IHtmlContent>(new HtmlString("Default")),
+            };
+            descriptor.Bindings["Foo__Alternate"] = new ShapeBinding
+            {
+                BindingName = "Foo__Alternate",
+                BindingSource = "Views/Foo-Alternate.cshtml",
+                BindingAsync = ctx => Task.FromResult<IHtmlContent>(new HtmlString("Alternate")),
+            };
+            AddShapeDescriptor(descriptor);
+
+            var result = await displayManager.ExecuteAsync(CreateDisplayContext(shape));
+
+            Assert.Equal("<!--shape-start type:Foo bindings:Foo__Alternate => Views/Foo-Alternate.cshtml (razor) -->Alternate<!--shape-end type:Foo -->", result.ToString());
+        }
+        finally
+        {
+            _shapeRenderingOptions.WriteShapeDebugInformation = false;
+        }
+    }
+
+    [Fact]
+    public async Task RenderLiquidShapeTemplateComments_Enabled_Succeeds()
+    {
+        _shapeRenderingOptions.WriteShapeDebugInformation = true;
+
+        try
+        {
+            var displayManager = _serviceProvider.GetService<IHtmlDisplay>();
+
+            var shape = new Shape();
+            shape.Metadata.Type = "Foo";
+
+            _additionalBindings["Foo"] = new ShapeBinding
+            {
+                BindingName = "Foo",
+                BindingSource = "Templates/Foo.liquid",
+                BindingAsync = ctx => Task.FromResult<IHtmlContent>(new HtmlString("Liquid")),
+            };
+
+            var result = await displayManager.ExecuteAsync(CreateDisplayContext(shape));
+
+            Assert.Equal("<!--shape-start type:Foo bindings:Foo => Templates/Foo.liquid (liquid) -->Liquid<!--shape-end type:Foo -->", result.ToString());
+        }
+        finally
+        {
+            _additionalBindings.Clear();
+            _shapeRenderingOptions.WriteShapeDebugInformation = false;
+        }
+    }
+
+    [Fact]
+    public async Task ShapeDescriptorDisplayingAndDisplayedAreCalled_Default_Succeeds()
     {
         var displayManager = _serviceProvider.GetService<IHtmlDisplay>();
 
@@ -377,7 +491,7 @@ public class DefaultDisplayManagerTests
     }
 
     [Fact]
-    public async Task DisplayingEventFiresEarlyEnoughToAddAlternateShapeBindingNames()
+    public async Task DisplayingEventFiresEarlyEnoughToAddAlternateShapeBindingNames_Default_Succeeds()
     {
         var htmlDisplay = _serviceProvider.GetService<IHtmlDisplay>();
 
@@ -410,7 +524,7 @@ public class DefaultDisplayManagerTests
     }
 
     [Fact]
-    public async Task ShapeTypeAndBindingNamesAreNotCaseSensitive()
+    public async Task ShapeTypeAndBindingNamesAreNotCaseSensitive_Default_Succeeds()
     {
         var displayManager = _serviceProvider.GetService<IHtmlDisplay>();
 
@@ -427,5 +541,411 @@ public class DefaultDisplayManagerTests
         var result = await displayManager.ExecuteAsync(CreateDisplayContext(shapeFoo));
 
         Assert.Equal("alpha", result.ToString());
+    }
+
+    [Fact]
+    public async Task IShapeDisplayEventsCalledInCorrectOrder_Default_Succeeds()
+    {
+        var displayManager = _serviceProvider.GetService<IHtmlDisplay>();
+        var testEvents = _serviceProvider.GetService<IShapeDisplayEvents>() as TestDisplayEvents;
+
+        var shape = new Shape();
+        shape.Metadata.Type = "OrderTest";
+
+        var descriptor = new ShapeDescriptor
+        {
+            ShapeType = "OrderTest",
+        };
+        AddBinding(descriptor, "OrderTest", ctx => Task.FromResult<IHtmlContent>(new HtmlString("Order Test Content")));
+        AddShapeDescriptor(descriptor);
+
+        var eventOrder = new List<string>();
+
+        // Override the event handlers to track the order of calls
+        testEvents.Displaying = ctx => eventOrder.Add("Displaying");
+        testEvents.Displayed = ctx => eventOrder.Add("Displayed");
+        testEvents.Finalized = ctx => eventOrder.Add("Finalized");
+
+        await displayManager.ExecuteAsync(CreateDisplayContext(shape));
+
+        // Verify that events were called in the correct order
+        Assert.Equal(3, eventOrder.Count);
+        Assert.Equal("Displaying", eventOrder[0]);
+        Assert.Equal("Displayed", eventOrder[1]);
+        Assert.Equal("Finalized", eventOrder[2]);
+    }
+
+    [Fact]
+    public async Task ShapeMorphingChangesTypeAndUsesNewBinding_Default_Succeeds()
+    {
+        var displayManager = _serviceProvider.GetService<IHtmlDisplay>();
+
+        var shape = new Shape();
+        shape.Metadata.Type = "OriginalShape";
+
+        var originalDescriptor = new ShapeDescriptor
+        {
+            ShapeType = "OriginalShape",
+        };
+        originalDescriptor.Bindings["OriginalShape"] = new ShapeBinding
+        {
+            BindingName = "OriginalShape",
+            BindingAsync = async ctx =>
+            {
+                // Morph the shape to a different type
+                ((IShape)ctx.Value).Metadata.Type = "MorphedShape";
+
+                // Re-execute with the new type using IDisplayHelper
+                var displayHelper = ctx.ServiceProvider.GetRequiredService<IDisplayHelper>();
+                return await displayHelper.ShapeExecuteAsync((IShape)ctx.Value);
+            },
+        };
+        AddShapeDescriptor(originalDescriptor);
+
+        var morphedDescriptor = new ShapeDescriptor
+        {
+            ShapeType = "MorphedShape",
+        };
+        morphedDescriptor.Bindings["MorphedShape"] = new ShapeBinding
+        {
+            BindingName = "MorphedShape",
+            BindingAsync = ctx => Task.FromResult<IHtmlContent>(new HtmlString("Morphed Content")),
+        };
+        AddShapeDescriptor(morphedDescriptor);
+
+        var result = await displayManager.ExecuteAsync(CreateDisplayContext(shape));
+
+        Assert.Equal("Morphed Content", result.ToString());
+        Assert.Equal("MorphedShape", shape.Metadata.Type);
+    }
+
+    [Fact]
+    public async Task ShapeMorphingWithAlternatePreservesOriginalMetadata_Default_Succeeds()
+    {
+        var displayManager = _serviceProvider.GetService<IHtmlDisplay>();
+
+        var shape = new Shape();
+        shape.Metadata.Type = "OriginalShape";
+        shape.Metadata.Alternates.Add("CustomAlternate");
+        shape.Properties["CustomProperty"] = "TestValue";
+
+        var originalDescriptor = new ShapeDescriptor
+        {
+            ShapeType = "OriginalShape",
+        };
+        originalDescriptor.Bindings["OriginalShape"] = new ShapeBinding
+        {
+            BindingName = "OriginalShape",
+            BindingAsync = async ctx =>
+            {
+                var originalAlternates = ((IShape)ctx.Value).Metadata.Alternates.ToList();
+                var originalProperties = ((IShape)ctx.Value).Properties.ToDictionary(p => p.Key, p => p.Value);
+
+                // Morph the shape to a different type
+                ((IShape)ctx.Value).Metadata.Type = "MorphedShape";
+
+                // Re-execute with the new type using IDisplayHelper
+                var displayHelper = ctx.ServiceProvider.GetRequiredService<IDisplayHelper>();
+                var result = await displayHelper.ShapeExecuteAsync((IShape)ctx.Value);
+
+                // Verify metadata preservation
+                Assert.Contains("CustomAlternate", ((IShape)ctx.Value).Metadata.Alternates);
+                Assert.Equal("TestValue", ((IShape)ctx.Value).Properties["CustomProperty"]);
+
+                return result;
+            },
+        };
+        AddShapeDescriptor(originalDescriptor);
+
+        var morphedDescriptor = new ShapeDescriptor
+        {
+            ShapeType = "MorphedShape",
+        };
+        morphedDescriptor.Bindings["MorphedShape"] = new ShapeBinding
+        {
+            BindingName = "MorphedShape",
+            BindingAsync = ctx => Task.FromResult<IHtmlContent>(new HtmlString("Morphed with Metadata")),
+        };
+        AddShapeDescriptor(morphedDescriptor);
+
+        var result = await displayManager.ExecuteAsync(CreateDisplayContext(shape));
+
+        Assert.Equal("Morphed with Metadata", result.ToString());
+        Assert.Equal("MorphedShape", shape.Metadata.Type);
+        Assert.Contains("CustomAlternate", shape.Metadata.Alternates);
+        Assert.Equal("TestValue", shape.Properties["CustomProperty"]);
+    }
+
+    [Fact]
+    public async Task ShapeMorphingWithConditionalLogic_Default_Succeeds()
+    {
+        var displayManager = _serviceProvider.GetService<IHtmlDisplay>();
+
+        var shape = new Shape();
+        shape.Metadata.Type = "ConditionalShape";
+        shape.Properties["ShouldMorph"] = true;
+
+        var conditionalDescriptor = new ShapeDescriptor
+        {
+            ShapeType = "ConditionalShape",
+        };
+        conditionalDescriptor.Bindings["ConditionalShape"] = new ShapeBinding
+        {
+            BindingName = "ConditionalShape",
+            BindingAsync = async ctx =>
+            {
+                var shouldMorph = ((IShape)ctx.Value).Properties.TryGetValue("ShouldMorph", out var morphValue) && (bool)morphValue;
+
+                if (shouldMorph)
+                {
+                    // Morph the shape
+                    ((IShape)ctx.Value).Metadata.Type = "MorphedConditionalShape";
+
+                    var displayHelper = ctx.ServiceProvider.GetRequiredService<IDisplayHelper>();
+                    return await displayHelper.ShapeExecuteAsync((IShape)ctx.Value);
+                }
+
+                return new HtmlString("Original Conditional Content");
+            },
+        };
+        AddShapeDescriptor(conditionalDescriptor);
+
+        var morphedDescriptor = new ShapeDescriptor
+        {
+            ShapeType = "MorphedConditionalShape",
+        };
+        morphedDescriptor.Bindings["MorphedConditionalShape"] = new ShapeBinding
+        {
+            BindingName = "MorphedConditionalShape",
+            BindingAsync = ctx => Task.FromResult<IHtmlContent>(new HtmlString("Morphed Conditional Content")),
+        };
+        AddShapeDescriptor(morphedDescriptor);
+
+        var result = await displayManager.ExecuteAsync(CreateDisplayContext(shape));
+
+        Assert.Equal("Morphed Conditional Content", result.ToString());
+
+        // Test the non-morphing condition
+        shape.Metadata.Type = "ConditionalShape"; // Reset type
+        shape.Properties["ShouldMorph"] = false;
+        shape.Metadata.ChildContent = null; // Clear any previous content
+
+        var result2 = await displayManager.ExecuteAsync(CreateDisplayContext(shape));
+        Assert.Equal("Original Conditional Content", result2.ToString());
+    }
+
+    [Fact]
+    public async Task ShapeMorphingWithAlternateBinding_Default_Succeeds()
+    {
+        var displayManager = _serviceProvider.GetService<IHtmlDisplay>();
+
+        var shape = new Shape();
+        shape.Metadata.Type = "OriginalShape";
+
+        var originalDescriptor = new ShapeDescriptor
+        {
+            ShapeType = "OriginalShape",
+        };
+        originalDescriptor.Bindings["OriginalShape"] = new ShapeBinding
+        {
+            BindingName = "OriginalShape",
+            BindingAsync = async ctx =>
+            {
+                // Morph to a shape type that has alternates
+                ((IShape)ctx.Value).Metadata.Type = "MorphedShape";
+                ((IShape)ctx.Value).Metadata.Alternates.Add("MorphedShape__Special");
+
+                var displayHelper = ctx.ServiceProvider.GetRequiredService<IDisplayHelper>();
+                return await displayHelper.ShapeExecuteAsync((IShape)ctx.Value);
+            },
+        };
+        AddShapeDescriptor(originalDescriptor);
+
+        var morphedDescriptor = new ShapeDescriptor
+        {
+            ShapeType = "MorphedShape",
+        };
+        morphedDescriptor.Bindings["MorphedShape"] = new ShapeBinding
+        {
+            BindingName = "MorphedShape",
+            BindingAsync = ctx => Task.FromResult<IHtmlContent>(new HtmlString("Default Morphed Content")),
+        };
+        morphedDescriptor.Bindings["MorphedShape__Special"] = new ShapeBinding
+        {
+            BindingName = "MorphedShape__Special",
+            BindingAsync = ctx => Task.FromResult<IHtmlContent>(new HtmlString("Special Morphed Content")),
+        };
+        AddShapeDescriptor(morphedDescriptor);
+
+        var result = await displayManager.ExecuteAsync(CreateDisplayContext(shape));
+
+        Assert.Equal("Special Morphed Content", result.ToString());
+        Assert.Equal("MorphedShape", shape.Metadata.Type);
+        Assert.Contains("MorphedShape__Special", shape.Metadata.Alternates);
+    }
+
+    [Fact]
+    public async Task ShapeMorphingChain_Default_Succeeds()
+    {
+        var displayManager = _serviceProvider.GetService<IHtmlDisplay>();
+
+        var shape = new Shape();
+        shape.Metadata.Type = "FirstShape";
+        shape.Properties["MorphCount"] = 0;
+
+        // First shape that morphs to second
+        var firstDescriptor = new ShapeDescriptor
+        {
+            ShapeType = "FirstShape",
+        };
+        firstDescriptor.Bindings["FirstShape"] = new ShapeBinding
+        {
+            BindingName = "FirstShape",
+            BindingAsync = async ctx =>
+            {
+                var shapeInstance = (IShape)ctx.Value;
+                var morphCount = (int)shapeInstance.Properties["MorphCount"];
+                shapeInstance.Properties["MorphCount"] = morphCount + 1;
+
+                // Morph to second shape
+                shapeInstance.Metadata.Type = "SecondShape";
+
+                var displayHelper = ctx.ServiceProvider.GetRequiredService<IDisplayHelper>();
+                return await displayHelper.ShapeExecuteAsync(shapeInstance);
+            },
+        };
+        AddShapeDescriptor(firstDescriptor);
+
+        // Second shape that morphs to third
+        var secondDescriptor = new ShapeDescriptor
+        {
+            ShapeType = "SecondShape",
+        };
+        secondDescriptor.Bindings["SecondShape"] = new ShapeBinding
+        {
+            BindingName = "SecondShape",
+            BindingAsync = async ctx =>
+            {
+                var shapeInstance = (IShape)ctx.Value;
+                var morphCount = (int)shapeInstance.Properties["MorphCount"];
+                shapeInstance.Properties["MorphCount"] = morphCount + 1;
+
+                // Morph to third shape
+                shapeInstance.Metadata.Type = "ThirdShape";
+
+                var displayHelper = ctx.ServiceProvider.GetRequiredService<IDisplayHelper>();
+                return await displayHelper.ShapeExecuteAsync(shapeInstance);
+            },
+        };
+        AddShapeDescriptor(secondDescriptor);
+
+        // Final shape that renders content
+        var thirdDescriptor = new ShapeDescriptor
+        {
+            ShapeType = "ThirdShape",
+        };
+        thirdDescriptor.Bindings["ThirdShape"] = new ShapeBinding
+        {
+            BindingName = "ThirdShape",
+            BindingAsync = ctx =>
+            {
+                var shapeInstance = (IShape)ctx.Value;
+                var morphCount = (int)shapeInstance.Properties["MorphCount"];
+                return Task.FromResult<IHtmlContent>(new HtmlString($"Final Content (Morphed {morphCount} times)"));
+            },
+        };
+        AddShapeDescriptor(thirdDescriptor);
+
+        var result = await displayManager.ExecuteAsync(CreateDisplayContext(shape));
+
+        Assert.Equal("Final Content (Morphed 2 times)", result.ToString());
+        Assert.Equal("ThirdShape", shape.Metadata.Type);
+        Assert.Equal(2, shape.Properties["MorphCount"]);
+    }
+
+    [Fact]
+    public async Task ShapeMorphingWithDisplayEvents_Default_Succeeds()
+    {
+        var displayManager = _serviceProvider.GetService<IHtmlDisplay>();
+        var testEvents = _serviceProvider.GetService<IShapeDisplayEvents>() as TestDisplayEvents;
+
+        var shape = new Shape();
+        shape.Metadata.Type = "OriginalShape";
+
+        var eventLog = new List<string>();
+
+        testEvents.Displaying = ctx => eventLog.Add($"Displaying: {ctx.Shape.Metadata.Type}");
+        testEvents.Displayed = ctx => eventLog.Add($"Displayed: {ctx.Shape.Metadata.Type}");
+        testEvents.Finalized = ctx => eventLog.Add($"Finalized: {ctx.Shape.Metadata.Type}");
+
+        var originalDescriptor = new ShapeDescriptor
+        {
+            ShapeType = "OriginalShape",
+        };
+        originalDescriptor.Bindings["OriginalShape"] = new ShapeBinding
+        {
+            BindingName = "OriginalShape",
+            BindingAsync = async ctx =>
+            {
+                // Morph the shape
+                ((IShape)ctx.Value).Metadata.Type = "MorphedShape";
+
+                var displayHelper = ctx.ServiceProvider.GetRequiredService<IDisplayHelper>();
+                return await displayHelper.ShapeExecuteAsync((IShape)ctx.Value);
+            },
+        };
+        AddShapeDescriptor(originalDescriptor);
+
+        var morphedDescriptor = new ShapeDescriptor
+        {
+            ShapeType = "MorphedShape",
+        };
+        morphedDescriptor.Bindings["MorphedShape"] = new ShapeBinding
+        {
+            BindingName = "MorphedShape",
+            BindingAsync = ctx => Task.FromResult<IHtmlContent>(new HtmlString("Morphed Content")),
+        };
+        AddShapeDescriptor(morphedDescriptor);
+
+        var result = await displayManager.ExecuteAsync(CreateDisplayContext(shape));
+
+        Assert.Equal("Morphed Content", result.ToString());
+
+        // Verify events were called for both original and morphed shapes
+        Assert.Contains("Displaying: OriginalShape", eventLog);
+        Assert.Contains("Displaying: MorphedShape", eventLog);
+        Assert.Contains("Displayed: MorphedShape", eventLog);
+        Assert.Contains("Finalized: MorphedShape", eventLog);
+        // Note: The Finalized event for the original shape is called, but the shape type
+        // has already been changed to MorphedShape, so it won't log as OriginalShape.
+    }
+
+    [Fact]
+    public async Task ShapeMorphingFails_TargetShapeNotFound_Succeeds()
+    {
+        var displayManager = _serviceProvider.GetService<IHtmlDisplay>();
+
+        var shape = new Shape();
+        shape.Metadata.Type = "OriginalShape";
+
+        var originalDescriptor = new ShapeDescriptor
+        {
+            ShapeType = "OriginalShape",
+        };
+        originalDescriptor.Bindings["OriginalShape"] = new ShapeBinding
+        {
+            BindingName = "OriginalShape",
+            BindingAsync = async ctx =>
+            {
+                // Morph to a non-existent shape type
+                ((IShape)ctx.Value).Metadata.Type = "NonExistentShape";
+
+                var displayHelper = ctx.ServiceProvider.GetRequiredService<IDisplayHelper>();
+                return await displayHelper.ShapeExecuteAsync((IShape)ctx.Value);
+            },
+        };
+        AddShapeDescriptor(originalDescriptor);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => displayManager.ExecuteAsync(CreateDisplayContext(shape)));
     }
 }

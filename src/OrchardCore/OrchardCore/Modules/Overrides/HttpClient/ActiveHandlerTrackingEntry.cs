@@ -11,7 +11,7 @@ namespace Microsoft.Extensions.Http;
 // for the 'expiry' pool simplifies the threading requirements significantly.
 internal sealed class ActiveHandlerTrackingEntry : IDisposable
 {
-    private static readonly TimerCallback _timerCallback = (s) => ((ActiveHandlerTrackingEntry)s!).Timer_Tick();
+    private static readonly TimerCallback s_timerCallback = (s) => ((ActiveHandlerTrackingEntry)s!).Timer_Tick();
     private readonly object _lock;
     private bool _timerInitialized;
     private Timer _timer;
@@ -31,7 +31,7 @@ internal sealed class ActiveHandlerTrackingEntry : IDisposable
         Scope = scope;
         Lifetime = lifetime;
 
-        _lock = new object();
+        _lock = new();
     }
 
     public LifetimeTrackingHttpMessageHandler Handler { get; private set; }
@@ -69,7 +69,7 @@ internal sealed class ActiveHandlerTrackingEntry : IDisposable
             }
 
             _callback = callback;
-            _timer = NonCapturingTimer.Create(_timerCallback, this, Lifetime, Timeout.InfiniteTimeSpan);
+            _timer = NonCapturingTimer.Create(s_timerCallback, this, Lifetime, Timeout.InfiniteTimeSpan);
             _timerInitialized = true;
         }
     }

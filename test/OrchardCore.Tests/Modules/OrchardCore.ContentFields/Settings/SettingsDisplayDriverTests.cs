@@ -1,10 +1,12 @@
 using OrchardCore.ContentFields.Fields;
 using OrchardCore.ContentFields.Settings;
+using OrchardCore.ContentFields.Settings.Models;
 using OrchardCore.DisplayManagement;
 using OrchardCore.DisplayManagement.Descriptors;
 using OrchardCore.DisplayManagement.Implementation;
 using OrchardCore.DisplayManagement.Theming;
 using OrchardCore.Environment.Extensions;
+using OrchardCore.Liquid;
 using OrchardCore.Tests.Stubs;
 
 namespace OrchardCore.Tests.Modules.OrchardCore.ContentFields.Settings;
@@ -39,7 +41,7 @@ public class SettingsDisplayDriverTests
     }
 
     [Fact]
-    public async Task BooleanFieldSettingsShouldDeserialize()
+    public async Task BooleanFieldSettings_Default_Deserialize()
     {
         var settings = new BooleanFieldSettings
         {
@@ -60,7 +62,7 @@ public class SettingsDisplayDriverTests
     }
 
     [Fact]
-    public async Task DateFieldSettingsShouldDeserialize()
+    public async Task DateFieldSettings_Default_Deserialize()
     {
         var settings = new DateFieldSettings
         {
@@ -79,7 +81,7 @@ public class SettingsDisplayDriverTests
     }
 
     [Fact]
-    public async Task DateTimeFieldSettingsShouldDeserialize()
+    public async Task DateTimeFieldSettings_Default_Deserialize()
     {
         var settings = new DateTimeFieldSettings
         {
@@ -98,7 +100,7 @@ public class SettingsDisplayDriverTests
     }
 
     [Fact]
-    public async Task LinkFieldSettingsShouldDeserialize()
+    public async Task LinkFieldSettings_Default_Deserialize()
     {
         var settings = new LinkFieldSettings
         {
@@ -131,7 +133,7 @@ public class SettingsDisplayDriverTests
     }
 
     [Fact]
-    public async Task LocalizationSetContentPickerFieldSettingsShouldDeserialize()
+    public async Task LocalizationSetContentPickerFieldSettings_Default_Deserialize()
     {
         var settings = new LocalizationSetContentPickerFieldSettings
         {
@@ -154,7 +156,7 @@ public class SettingsDisplayDriverTests
     }
 
     [Fact]
-    public async Task NumericFieldSettingsShouldDeserialize()
+    public async Task NumericFieldSettings_Default_Deserialize()
     {
         var settings = new NumericFieldSettings
         {
@@ -183,28 +185,46 @@ public class SettingsDisplayDriverTests
     }
 
     [Fact]
-    public async Task TextFieldSettingsShouldDeserialize()
+    public async Task TextFieldSettings_Default_Deserialize()
     {
         var settings = new TextFieldSettings
         {
             DefaultValue = "Test Default",
             Hint = "Test Hint",
             Required = true,
+            MinLength = 2,
+            MaxLength = 100,
         };
 
         var contentDefinition = DisplayDriverTestHelper.GetContentPartDefinition<TextField>(field => field.WithSettings(settings));
 
-        var shapeResult = await DisplayDriverTestHelper.GetShapeResultAsync<TextFieldSettingsDriver>(_shapeFactory, contentDefinition);
+        var liquidTemplateManagerMock = new Mock<ILiquidTemplateManager>();
 
-        var shape = (TextFieldSettings)shapeResult.Shape;
+        liquidTemplateManagerMock.Setup(m => m.Validate(It.IsAny<string>(), out It.Ref<IEnumerable<string>>.IsAny))
+            .Returns(true)
+            .Callback((string template, out IEnumerable<string> errors) =>
+            {
+                errors = new List<string>(); // set to empty errors
+            });
+
+        var shapeResult = await DisplayDriverTestHelper.GetShapeResultAsync(
+            new TextFieldSettingsDriver(liquidTemplateManagerMock.Object, Mock.Of<IStringLocalizer<TextFieldSettingsDriver>>()),
+            _shapeFactory,
+            contentDefinition);
+
+        var stringLocalizer = Mock.Of<IStringLocalizer<TextFieldSettingsDriver>>();
+
+        var shape = (TextFieldSettingsViewModel)shapeResult.Shape;
 
         Assert.Equal(settings.Hint, shape.Hint);
         Assert.Equal(settings.DefaultValue, shape.DefaultValue);
         Assert.Equal(settings.Required, shape.Required);
+        Assert.Equal(settings.MinLength, shape.MinLength);
+        Assert.Equal(settings.MaxLength, shape.MaxLength);
     }
 
     [Fact]
-    public async Task TimeFieldSettingsShouldDeserialize()
+    public async Task TimeFieldSettings_Default_Deserialize()
     {
         var settings = new TimeFieldSettings
         {
@@ -225,7 +245,7 @@ public class SettingsDisplayDriverTests
     }
 
     [Fact]
-    public async Task YouTubeFieldSettingsShouldDeserialize()
+    public async Task YouTubeFieldSettings_Default_Deserialize()
     {
         var settings = new YoutubeFieldSettings
         {

@@ -1,17 +1,13 @@
-using System;
-using System.Collections.Generic;
 using System.Globalization;
-using System.Linq;
-using System.Threading;
 using Microsoft.Extensions.Caching.Memory;
 
 namespace OrchardCore.Localization.Data;
 
 public class DataResourceManager
 {
-    private const string CacheKeyPrefix = "CultureDictionary-";
+    private const string CacheKeyPrefix = "DataCultureDictionary-";
 
-    private static readonly PluralizationRuleDelegate _noPluralRule = n => 0;
+    private static readonly PluralizationRuleDelegate s_noPluralRule = n => 0;
 
     private readonly IDataTranslationProvider _translationProvider;
     private readonly IMemoryCache _cache;
@@ -80,7 +76,7 @@ public class DataResourceManager
     {
         var cachedDictionary = _cache.GetOrCreate(CacheKeyPrefix + culture.Name, k => new Lazy<CultureDictionary>(() =>
         {
-            var dictionary = new CultureDictionary(culture.Name, _noPluralRule);
+            var dictionary = new CultureDictionary(culture.Name, s_noPluralRule);
 
             _translationProvider.LoadTranslations(culture.Name, dictionary);
 

@@ -53,13 +53,13 @@ public static class StringExtensions
 
         // Search beginning of word.
         var backup = characterCount;
-        while (characterCount > 0 && text[characterCount - 1].IsLetter())
+        while (characterCount > 0 && char.IsAsciiLetter(text[characterCount - 1]))
         {
             characterCount--;
         }
 
         // Search previous word.
-        while (characterCount > 0 && text[characterCount - 1].IsSpace())
+        while (characterCount > 0 && char.IsWhiteSpace(text[characterCount - 1]))
         {
             characterCount--;
         }
@@ -90,7 +90,7 @@ public static class StringExtensions
         for (var i = 0; i < friendlier.Length; i++)
         {
             var current = friendlier[i];
-            if (IsLetter(current) || (char.IsDigit(current) && cursor > 0))
+            if (char.IsAsciiLetter(current) || (char.IsDigit(current) && cursor > 0))
             {
                 if (previousIsNotLetter && i != 0 && cursor > 0)
                 {
@@ -123,6 +123,13 @@ public static class StringExtensions
             return string.Empty;
         }
 
+        // Decoding must happen before the tags are stripped to strip out all tags from the final result. This prevents
+        // XSS by way of encoded HTML (e.g. "&lt;img src=x onerror=alert(1)&gt;").
+        if (htmlDecode)
+        {
+            html = WebUtility.HtmlDecode(html);
+        }
+
         var result = new char[html.Length];
 
         var cursor = 0;
@@ -149,15 +156,11 @@ public static class StringExtensions
 
         var stringResult = new string(result, 0, cursor);
 
-        if (htmlDecode)
-        {
-            stringResult = WebUtility.HtmlDecode(stringResult);
-        }
-
         return stringResult;
     }
 
     // Not accounting for only \r (e.g. Apple OS 9 carriage return only new lines).
+    [Obsolete("This method will be removed in future releases. Use string.ReplaceLineEndings() instead.")]
     public static string ReplaceNewLinesWith(this string text, string replacement)
     {
         return string.IsNullOrWhiteSpace(text)
@@ -168,7 +171,8 @@ public static class StringExtensions
                          .Replace("\r\r", string.Format(replacement, "\r\n"));
     }
 
-    private static readonly char[] _validSegmentChars = "/?#[]@\"^{}|`<>\t\r\n\f ".ToCharArray();
+    private static readonly char[] s_validSegmentChars = "/?#[]@\"^{}|`<>\t\r\n\f ".ToCharArray();
+
     public static bool IsValidUrlSegment(this string segment)
     {
         // Valid isegment from rfc3987 - http://tools.ietf.org/html/rfc3987#page-8
@@ -182,7 +186,7 @@ public static class StringExtensions
         //
         // rough blacklist regex == m/^[^/?#[]@"^{}|\s`<>]+$/ (leaving off % to keep the regex simple)
 
-        return !segment.Any(_validSegmentChars);
+        return !segment.Any(s_validSegmentChars);
     }
 
     /// <summary>
@@ -200,14 +204,14 @@ public static class StringExtensions
 
         name = RemoveDiacritics(name);
         name = name.Strip(c =>
-            !c.IsLetter()
+            !char.IsAsciiLetter(c)
             && !char.IsDigit(c)
             );
 
         name = name.Trim();
 
         // Don't allow non A-Z chars as first letter, as they are not allowed in prefixes.
-        while (name.Length > 0 && !IsLetter(name[0]))
+        while (name.Length > 0 && !char.IsAsciiLetter(name[0]))
         {
             name = name[1..];
         }
@@ -223,11 +227,13 @@ public static class StringExtensions
     /// <summary>
     /// Whether the char is a letter between A and Z or not.
     /// </summary>
+    [Obsolete("This method will be removed in future releases. Use char.IsAsciiLetter() instead.")]
     public static bool IsLetter(this char c)
     {
         return ('A' <= c && c <= 'Z') || ('a' <= c && c <= 'z');
     }
 
+    [Obsolete("This method will be removed in future releases. Use char.IsWhiteSpace() instead.")]
     public static bool IsSpace(this char c)
     {
         return (c == '\r' || c == '\n' || c == '\t' || c == '\f' || c == ' ');
@@ -400,39 +406,24 @@ public static class StringExtensions
         return Regex.Replace(original, pattern, match => replacements[match.Value]);
     }
 
-#if NET8_0
-    [Obsolete("Don't use 'TrimEnd' as this has a different behavior in .NET 9.0. Use 'OrchardCore.ContentManagement.Utilities.TrimEndString' instead.")]
-    public static string TrimEnd(this string rough, string trim = "")
-    {
-        if (rough == null)
-        {
-            return null;
-        }
-
-        return rough.EndsWith(trim, StringComparison.Ordinal)
-                   ? rough[..^trim.Length]
-                   : rough;
-    }
-#endif
-
     public static string ReplaceLastOccurrence(this string source, string find, string replace)
     {
         var place = source.LastIndexOf(find, StringComparison.Ordinal);
         return source.Remove(place, find.Length).Insert(place, replace);
     }
 
-    private static ImmutableDictionary<string, string> _underscorePascalCaseIndex = ImmutableDictionary<string, string>.Empty;
-    private static ImmutableDictionary<string, string> _dashPascalCaseIndex = ImmutableDictionary<string, string>.Empty;
+    private static ImmutableDictionary<string, string> s_underscorePascalCaseIndex = ImmutableDictionary<string, string>.Empty;
+    private static ImmutableDictionary<string, string> s_dashPascalCaseIndex = ImmutableDictionary<string, string>.Empty;
 
     /// <summary>
     /// Converts a liquid attribute to pascal case.
     /// </summary>
     public static string ToPascalCaseUnderscore(this string attribute)
     {
-        if (!_underscorePascalCaseIndex.TryGetValue(attribute, out var result))
+        if (!s_underscorePascalCaseIndex.TryGetValue(attribute, out var result))
         {
             result = ToPascalCase(attribute, '_');
-            _underscorePascalCaseIndex = _underscorePascalCaseIndex.SetItem(attribute, result);
+            s_underscorePascalCaseIndex = s_underscorePascalCaseIndex.SetItem(attribute, result);
         }
 
         return result;
@@ -443,10 +434,10 @@ public static class StringExtensions
     /// </summary>
     public static string ToPascalCaseDash(this string attribute)
     {
-        if (!_dashPascalCaseIndex.TryGetValue(attribute, out var result))
+        if (!s_dashPascalCaseIndex.TryGetValue(attribute, out var result))
         {
             result = ToPascalCase(attribute, '-');
-            _dashPascalCaseIndex = _dashPascalCaseIndex.SetItem(attribute, result);
+            s_dashPascalCaseIndex = s_dashPascalCaseIndex.SetItem(attribute, result);
         }
 
         return result;

@@ -4,10 +4,7 @@ using OrchardCore.BackgroundTasks;
 using OrchardCore.ContentManagement;
 using OrchardCore.Environment.Shell;
 using OrchardCore.Environment.Shell.Scope;
-using OrchardCore.Indexing;
-using OrchardCore.Indexing.Core;
 using OrchardCore.Recipes.Services;
-using OrchardCore.Search.Lucene;
 
 namespace OrchardCore.Tests.Apis.Context;
 
@@ -17,7 +14,7 @@ public class SiteContext : IDisposable
     private const int HttpBackgroundJobsTimeoutSeconds = 90;
     private const int WaitDelayMilliseconds = 10;
 
-    private static readonly TablePrefixGenerator _tablePrefixGenerator = new();
+    private static readonly TablePrefixGenerator s_tablePrefixGenerator = new();
     public static OrchardTestFixture<SiteStartup> Site { get; }
     public static IShellHost ShellHost { get; private set; }
     public static IShellSettingsManager ShellSettingsManager { get; private set; }
@@ -45,7 +42,7 @@ public class SiteContext : IDisposable
     public virtual async Task InitializeAsync()
     {
         var tenantName = Guid.NewGuid().ToString("n");
-        var tablePrefix = await _tablePrefixGenerator.GeneratePrefixAsync();
+        var tablePrefix = await s_tablePrefixGenerator.GeneratePrefixAsync();
 
         var createModel = new Tenants.Models.TenantApiModel
         {
@@ -110,7 +107,7 @@ public class SiteContext : IDisposable
 
     // Waits up to 60 seconds for all outstanding deferred tasks to complete by making sure no shell scope is
     // currently executing.
-    public Task WaitForOutstandingDeferredTasksAsync(CancellationToken cancellationToken)
+    public Task WaitForDeferredTasksAsync(CancellationToken cancellationToken)
     {
         return UsingTenantScopeAsync(async scope =>
         {
@@ -131,6 +128,7 @@ public class SiteContext : IDisposable
     }
 
     // Waits up to 90 seconds for all outstanding HTTP background jobs.
+    // This also handles nested jobs where completing one job may spawn another.
     public Task WaitForHttpBackgroundJobsAsync(CancellationToken cancellationToken)
     {
         return UsingTenantScopeAsync(async scope =>
@@ -172,25 +170,6 @@ public class SiteContext : IDisposable
                 recipe,
                 new Dictionary<string, object>(),
                 CancellationToken.None);
-        });
-    }
-
-    public Task ResetLuceneIndexesAsync(string indexName)
-    {
-        return UsingTenantScopeAsync(async scope =>
-        {
-            var indexProfileManager = scope.ServiceProvider.GetRequiredService<IIndexProfileManager>();
-            var indexManager = scope.ServiceProvider.GetRequiredService<LuceneIndexManager>();
-            var contentIndexingService = scope.ServiceProvider.GetRequiredService<ContentIndexingService>();
-
-            var index = await indexProfileManager.FindByNameAndProviderAsync(indexName, LuceneConstants.ProviderName);
-
-            await indexProfileManager.ResetAsync(index);
-            await indexProfileManager.UpdateAsync(index);
-
-            // Instead of calling SynchronizeAsync which triggers the indexing in a background process,
-            // directly call and await the indexing process.
-            await contentIndexingService.ProcessRecordsForAllIndexesAsync();
         });
     }
 

@@ -1,21 +1,20 @@
 @using OrchardCore.DisplayManagement
 @using OrchardCore.DisplayManagement.ModelBinding
-@using OrchardCore.Environment.Shell
 @using OrchardCore.Themes.Services
-@using OrchardCore.Users.Models
 
 @inject ThemeTogglerService ThemeTogglerService
+@inject IOptions<AdminOptions> AdminOptions
 @inject IDisplayManager<Navbar> DisplayManager
 @inject IUpdateModelAccessor UpdateModelAccessor
 @{
-    var adminSettings = Site.As<AdminSettings>();
+    var adminSettings = Site.GetOrCreate<AdminSettings>();
 
     // Branding and Navbar are pre-rendered to allow resource injection.
     var brandingHtml = await DisplayAsync(await New.AdminBranding());
     var navbar = await DisplayAsync(await DisplayManager.BuildDisplayAsync(UpdateModelAccessor.ModelUpdater, "DetailAdmin"));
 }
 <!DOCTYPE html>
-<html lang="@Orchard.CultureName()" dir="@Orchard.CultureDir()" data-bs-theme="@await ThemeTogglerService.CurrentTheme()" data-tenant="@ThemeTogglerService.CurrentTenant">
+<html lang="@Orchard.CultureName()" dir="@Orchard.CultureDir()" data-bs-theme="@await ThemeTogglerService.CurrentTheme()" data-tenant="@ThemeTogglerService.CurrentTenant" data-admin-prefix="@Url.Content("~/" + AdminOptions.Value.AdminUrlPrefix)">
 <head>
     <title>@RenderTitleSegments(Site.SiteName, "before")</title>
     <meta charset="utf-8">
@@ -37,7 +36,7 @@
         <style asp-name="bootstrap" version="5" at="Head"></style>
         <style media="all" asp-name="the-admin" version="1" depends-on="bootstrap,TheAdminLayout" at="Head"></style>
     }
-    <script asp-name="font-awesome" at="Foot" version="6"></script>
+    <style asp-name="font-awesome" at="Head" version="7"></style>
     <script asp-name="the-admin" version="1" at="Foot"></script>
 
     <resources type="Header" />
@@ -75,7 +74,7 @@
             </div>
         </div>
 
-        <div class="ta-content">
+        <div class="ta-content" style="--oc-notify-offset-top: var(--oc-top-nav-height);">
             @await RenderSectionAsync("Header", required: false)
             @await RenderSectionAsync("Messages", required: false)
             @await RenderSectionAsync("Breadcrumbs", required: false)

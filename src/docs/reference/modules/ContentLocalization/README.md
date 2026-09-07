@@ -25,9 +25,9 @@ The `ContentCulturePicker` selects the url to redirect using the following rules
 
 ### Localization Cookie
 
-By default, the `ContentCulturePicker` sets a cookie for the `CookieRequestCultureProvider`. This can be disabled in the  `Configuration/Settings/Localization/Content Culture Picker` settings page.
+By default, the `ContentCulturePicker` sets a cookie for the `CookieRequestCultureProvider`. This can be disabled in the  `Settings/Localization/Content Culture Picker` settings page.
 
-The `ContentRequestCultureProvider` can set the cookie based on the ContentItem that matches the current url. This setting can be edited in the  `Configuration/Settings/Localization/Content Request Culture Provider` settings page.
+The `ContentRequestCultureProvider` can set the cookie based on the ContentItem that matches the current url. This setting can be edited in the  `Settings/Localization/Content Culture` settings page.
 
 #### Recipe Step
 
@@ -78,6 +78,40 @@ Output
 ```text
 Title
 ```
+
+## Recipe Configuration
+
+Content localization settings can be configured using the `Settings` recipe step:
+
+```json
+{
+  "steps": [
+    {
+      "name": "settings",
+      "ContentCulturePickerSettings": {
+        "RedirectToHomepage": false,
+        "SetCookie": true
+      },
+      "ContentRequestCultureProviderSettings": {
+        "SetCookie": false
+      }
+    }
+  ]
+}
+```
+
+### ContentCulturePickerSettings
+
+| Property             | Type    | Description                                                                |
+|----------------------|---------|----------------------------------------------------------------------------|
+| `RedirectToHomepage` | Boolean | Whether to redirect to the homepage when switching cultures.               |
+| `SetCookie`          | Boolean | Whether to set a cookie to remember the selected culture. Default: `true`. |
+
+### ContentRequestCultureProviderSettings
+
+| Property    | Type    | Description                                          |
+|-------------|---------|------------------------------------------------------|
+| `SetCookie` | Boolean | Whether to set a cookie with the determined culture. |
 
 ## Configuration
 

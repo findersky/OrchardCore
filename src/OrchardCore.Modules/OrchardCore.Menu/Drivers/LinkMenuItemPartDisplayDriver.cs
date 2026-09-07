@@ -1,9 +1,10 @@
 using System.Text.Encodings.Web;
-using Microsoft.AspNetCore.Mvc.Infrastructure;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Routing;
 using Microsoft.Extensions.Localization;
 using OrchardCore.ContentManagement.Display.ContentDisplay;
 using OrchardCore.ContentManagement.Display.Models;
+using OrchardCore.DisplayManagement.Extensions;
 using OrchardCore.DisplayManagement.Views;
 using OrchardCore.Infrastructure.Html;
 using OrchardCore.Menu.Models;
@@ -14,7 +15,7 @@ namespace OrchardCore.Menu.Drivers;
 public sealed class LinkMenuItemPartDisplayDriver : ContentPartDisplayDriver<LinkMenuItemPart>
 {
     private readonly IUrlHelperFactory _urlHelperFactory;
-    private readonly IActionContextAccessor _actionContextAccessor;
+    private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly IHtmlSanitizerService _htmlSanitizerService;
     private readonly HtmlEncoder _htmlEncoder;
 
@@ -22,14 +23,14 @@ public sealed class LinkMenuItemPartDisplayDriver : ContentPartDisplayDriver<Lin
 
     public LinkMenuItemPartDisplayDriver(
         IUrlHelperFactory urlHelperFactory,
-        IActionContextAccessor actionContextAccessor,
+        IHttpContextAccessor httpContextAccessor,
         IStringLocalizer<LinkMenuItemPartDisplayDriver> localizer,
         IHtmlSanitizerService htmlSanitizerService,
         HtmlEncoder htmlEncoder
         )
     {
         _urlHelperFactory = urlHelperFactory;
-        _actionContextAccessor = actionContextAccessor;
+        _httpContextAccessor = httpContextAccessor;
         _htmlSanitizerService = htmlSanitizerService;
         _htmlEncoder = htmlEncoder;
         S = localizer;
@@ -38,15 +39,15 @@ public sealed class LinkMenuItemPartDisplayDriver : ContentPartDisplayDriver<Lin
     public override IDisplayResult Display(LinkMenuItemPart part, BuildPartDisplayContext context)
     {
         return Combine(
-            Dynamic("LinkMenuItemPart_Admin", shape =>
+            Dynamic("LinkMenuItemPart_Admin", static (shape, part) =>
             {
                 shape.MenuItemPart = part;
-            })
+            }, part)
             .Location("Admin", "Content:10"),
-            Dynamic("LinkMenuItemPart_Thumbnail", shape =>
+            Dynamic("LinkMenuItemPart_Thumbnail", static (shape, part) =>
             {
                 shape.MenuItemPart = part;
-            })
+            }, part)
             .Location("Thumbnail", "Content:10")
         );
     }
@@ -80,7 +81,10 @@ public sealed class LinkMenuItemPartDisplayDriver : ContentPartDisplayDriver<Lin
 
             if (urlToValidate.StartsWith("~/", StringComparison.Ordinal))
             {
-                var urlHelper = _urlHelperFactory.GetUrlHelper(_actionContextAccessor.ActionContext);
+                // In .NET 10, create ActionContext directly instead of using obsolete IActionContextAccessor
+                var httpContext = _httpContextAccessor.HttpContext;
+                var actionContext = await httpContext.GetActionContextAsync();
+                var urlHelper = _urlHelperFactory.GetUrlHelper(actionContext);
                 urlToValidate = urlHelper.Content(urlToValidate);
             }
 

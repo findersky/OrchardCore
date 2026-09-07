@@ -8,7 +8,7 @@ public abstract class BaseShapeTagHelper : TagHelper
     protected const string PropertyDictionaryName = "prop-all";
     protected const string PropertyPrefix = "prop-";
 
-    private static readonly HashSet<string> _internalProperties =
+    private static readonly HashSet<string> s_internalProperties =
     [
         "id",
         "alternate",
@@ -20,7 +20,7 @@ public abstract class BaseShapeTagHelper : TagHelper
         "cache-sliding-duration"
     ];
 
-    private static readonly char[] _separators = [',', ' '];
+    private static readonly char[] s_separators = [',', ' '];
 
     protected IShapeFactory _shapeFactory;
     protected IDisplayHelper _displayHelper;
@@ -32,9 +32,13 @@ public abstract class BaseShapeTagHelper : TagHelper
     // and then not added to the properties of the shape we are building.
 
     internal string Cache { get; set; }
+
     internal TimeSpan? FixedDuration { get; set; }
+
     internal TimeSpan? SlidingDuration { get; set; }
+
     internal string Context { get; set; }
+
     internal string Tag { get; set; }
 
     protected BaseShapeTagHelper(IShapeFactory shapeFactory, IDisplayHelper displayHelper)
@@ -64,7 +68,7 @@ public abstract class BaseShapeTagHelper : TagHelper
         foreach (var pair in output.Attributes)
         {
             // Check it's not a reserved property name
-            if (!_internalProperties.Contains(pair.Name))
+            if (!s_internalProperties.Contains(pair.Name))
             {
                 var normalizedName = pair.Name.ToPascalCaseDash();
 
@@ -80,34 +84,34 @@ public abstract class BaseShapeTagHelper : TagHelper
             Type = output.TagName;
         }
 
-        if (string.IsNullOrWhiteSpace(Cache) && output.Attributes.ContainsName("cache-id"))
+        if (string.IsNullOrWhiteSpace(Cache) && output.Attributes.TryGetAttribute("cache-id", out var cacheId))
         {
-            Cache = Convert.ToString(output.Attributes["cache-id"].Value);
+            Cache = Convert.ToString(cacheId.Value);
         }
 
-        if (string.IsNullOrWhiteSpace(Context) && output.Attributes.ContainsName("cache-context"))
+        if (string.IsNullOrWhiteSpace(Context) && output.Attributes.TryGetAttribute("cache-context", out var cacheContext))
         {
-            Context = Convert.ToString(output.Attributes["cache-context"].Value);
+            Context = Convert.ToString(cacheContext.Value);
         }
 
-        if (string.IsNullOrWhiteSpace(Tag) && output.Attributes.ContainsName("cache-tag"))
+        if (string.IsNullOrWhiteSpace(Tag) && output.Attributes.TryGetAttribute("cache-tag", out var cacheTag))
         {
-            Tag = Convert.ToString(output.Attributes["cache-tag"].Value);
+            Tag = Convert.ToString(cacheTag.Value);
         }
 
-        if (!FixedDuration.HasValue && output.Attributes.ContainsName("cache-fixed-duration"))
+        if (!FixedDuration.HasValue && output.Attributes.TryGetAttribute("cache-fixed-duration", out var cashDuration))
         {
             TimeSpan timespan;
-            if (TimeSpan.TryParse(Convert.ToString(output.Attributes["cache-fixed-duration"].Value), out timespan))
+            if (TimeSpan.TryParse(Convert.ToString(cashDuration.Value), out timespan))
             {
                 FixedDuration = timespan;
             }
         }
 
-        if (!SlidingDuration.HasValue && output.Attributes.ContainsName("cache-sliding-duration"))
+        if (!SlidingDuration.HasValue && output.Attributes.TryGetAttribute("cache-sliding-duration", out var slidingDuration))
         {
             TimeSpan timespan;
-            if (TimeSpan.TryParse(Convert.ToString(output.Attributes["cache-sliding-duration"].Value), out timespan))
+            if (TimeSpan.TryParse(Convert.ToString(slidingDuration.Value), out timespan))
             {
                 SlidingDuration = timespan;
             }
@@ -115,19 +119,24 @@ public abstract class BaseShapeTagHelper : TagHelper
 
         var shape = await _shapeFactory.CreateAsync(Type, Arguments.From(properties));
 
-        if (output.Attributes.ContainsName("id"))
+        if (output.Attributes.TryGetAttribute("id", out var id))
         {
-            shape.Id = Convert.ToString(output.Attributes["id"].Value);
+            shape.Id = Convert.ToString(id.Value);
         }
 
-        if (output.Attributes.ContainsName("alternate"))
+        if (output.Attributes.TryGetAttribute("alternate", out var alternate))
         {
-            shape.Metadata.Alternates.Add(Convert.ToString(output.Attributes["alternate"].Value));
+            shape.Metadata.Alternates.Add(Convert.ToString(alternate.Value));
         }
 
-        if (output.Attributes.ContainsName("wrapper"))
+        if (output.Attributes.TryGetAttribute("wrapper", out var wrapper))
         {
-            shape.Metadata.Wrappers.Add(Convert.ToString(output.Attributes["wrapper"].Value));
+            shape.Metadata.Wrappers.Add(Convert.ToString(wrapper.Value));
+        }
+
+        if (output.Attributes.TryGetAttribute("display-type", out var displayType))
+        {
+            shape.Metadata.DisplayType = Convert.ToString(displayType.Value);
         }
 
         tagHelperContext.Items[typeof(IShape)] = shape;
@@ -150,13 +159,13 @@ public abstract class BaseShapeTagHelper : TagHelper
 
             if (!string.IsNullOrWhiteSpace(Context))
             {
-                var contexts = Context.Split(_separators, StringSplitOptions.RemoveEmptyEntries);
+                var contexts = Context.Split(s_separators, StringSplitOptions.RemoveEmptyEntries);
                 metadata.Cache().AddContext(contexts);
             }
 
             if (!string.IsNullOrWhiteSpace(Tag))
             {
-                var tags = Tag.Split(_separators, StringSplitOptions.RemoveEmptyEntries);
+                var tags = Tag.Split(s_separators, StringSplitOptions.RemoveEmptyEntries);
                 metadata.Cache().AddTag(tags);
             }
         }

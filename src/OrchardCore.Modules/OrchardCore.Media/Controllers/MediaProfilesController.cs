@@ -8,13 +8,12 @@ using Microsoft.Extensions.Options;
 using OrchardCore.Admin;
 using OrchardCore.DisplayManagement;
 using OrchardCore.DisplayManagement.Notify;
+using OrchardCore.Media.Core.Processing;
 using OrchardCore.Media.Models;
 using OrchardCore.Media.Services;
 using OrchardCore.Media.ViewModels;
 using OrchardCore.Navigation;
 using OrchardCore.Routing;
-using Format = OrchardCore.Media.Processing.Format;
-using ResizeMode = OrchardCore.Media.Processing.ResizeMode;
 
 namespace OrchardCore.Media.Controllers;
 
@@ -164,6 +163,7 @@ public sealed class MediaProfilesController : Controller
                 Format = model.SelectedFormat,
                 Quality = model.Quality,
                 BackgroundColor = model.BackgroundColor,
+                AutoOrient = model.AutoOrient,
             };
 
             await _mediaProfilesManager.UpdateMediaProfileAsync(model.Name, mediaProfile);
@@ -214,6 +214,7 @@ public sealed class MediaProfilesController : Controller
             SelectedFormat = mediaProfile.Format,
             Quality = mediaProfile.Quality,
             BackgroundColor = mediaProfile.BackgroundColor,
+            AutoOrient = mediaProfile.AutoOrient,
         };
 
         BuildViewModel(model);
@@ -258,6 +259,7 @@ public sealed class MediaProfilesController : Controller
                 Format = model.SelectedFormat,
                 Quality = model.Quality,
                 BackgroundColor = model.BackgroundColor,
+                AutoOrient = model.AutoOrient,
             };
 
             await _mediaProfilesManager.RemoveMediaProfileAsync(sourceName);
@@ -310,7 +312,7 @@ public sealed class MediaProfilesController : Controller
             return Forbid();
         }
 
-        if (itemIds?.Count() > 0)
+        if (itemIds?.Any() == true)
         {
             var mediaProfilesDocument = await _mediaProfilesManager.LoadMediaProfilesDocumentAsync();
             var checkedContentItems = mediaProfilesDocument.MediaProfiles.Where(x => itemIds.Contains(x.Key));
@@ -355,11 +357,9 @@ public sealed class MediaProfilesController : Controller
 
 
         model.AvailableFormats.Add(new SelectListItem() { Text = S["Default"], Value = ((int)Format.Undefined).ToString() });
-        model.AvailableFormats.Add(new SelectListItem() { Text = S["Bmp"], Value = ((int)Format.Bmp).ToString() });
         model.AvailableFormats.Add(new SelectListItem() { Text = S["Gif"], Value = ((int)Format.Gif).ToString() });
         model.AvailableFormats.Add(new SelectListItem() { Text = S["Jpg"], Value = ((int)Format.Jpg).ToString() });
         model.AvailableFormats.Add(new SelectListItem() { Text = S["Png"], Value = ((int)Format.Png).ToString() });
-        model.AvailableFormats.Add(new SelectListItem() { Text = S["Tga"], Value = ((int)Format.Tga).ToString() });
         model.AvailableFormats.Add(new SelectListItem() { Text = S["WebP"], Value = ((int)Format.WebP).ToString() });
     }
 }

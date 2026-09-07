@@ -1,6 +1,6 @@
 # Tenants (`OrchardCore.Tenants`)
 
-The `Tenants` module allows to manage tenants from the admin.
+The `Tenants` module allows you to manage tenants from the admin.
 
 ## Static File Provider Feature
 
@@ -29,7 +29,7 @@ This feature allows the `Default` tenant to create Feature Profiles which can re
 ### Creating a feature profile
 
 1. Enable the _Tenant Feature Profiles_ feature on the `Default` tenant.
-2. Go to the _Configuration -> Tenant Feature Profiles_ menu.
+2. Go to the _Multi-Tenancy -> Feature Profiles_ menu.
 3. Select _Add Feature Profile_.
 4. Add a _Name_ and a set of _Rules_.
 
@@ -116,7 +116,7 @@ By using the `FeatureProfiles` recipe step, you can define profiles from recipes
 ### Selecting a feature profile
 
 1. Create a Feature Profile.
-2. Go to the _Configuration -> Tenants_ menu.
+2. Go to the _Multi-Tenancy -> Tenants_ menu.
 3. Edit the tenant.
 4. Select a feature profile from the dropdown.
 
@@ -141,6 +141,39 @@ Tenant Removal can be allowed from any configuration source (e.g. `appsettings.j
   }
 }
 ```
+
+## Table Prefix Requirement
+
+When tenants share the same database, `TablePrefix` isolates each tenant's tables. The `Default:TablePrefix` setting only configures the Default tenant's own prefix; it does not force newly created tenants to provide one.
+
+You can control tenant table prefixes and schemas from any configuration source (e.g. `appsettings.json`) under the `OrchardCore` section:
+
+```json
+{
+  "OrchardCore": {
+    "OrchardCore_Tenants": {
+      "RequireTablePrefix": true,
+      "TablePrefixPattern": "{{ ShellSettings.Name }}",
+      "SchemaPattern": "dbo"
+    }
+  }
+}
+```
+
+When enabled, creating a tenant or editing an uninitialized tenant requires a non-empty `TablePrefix` for database providers that support table prefixes.
+
+If `TablePrefixPattern` is configured, Orchard generates the tenant `TablePrefix` automatically from a Fluid template and no longer prompts for manual entry in the tenant UI for that field. `SchemaPattern` does the same for the tenant `Schema`.
+
+These patterns render with `ShellSettings` in scope, so you can use values such as:
+
+```text
+{{ ShellSettings.Name }}
+{{ ShellSettings.RequestUrlPrefix }}
+```
+
+Both generated and manually entered `TablePrefix` and `Schema` values must be valid SQL identifiers: use only letters, numbers, and underscores, and start with a letter or underscore.
+
+This is intended for shared-database providers that support table prefixes. The built-in SQLite provider is not configured through this pattern to share a single database file across multiple tenants.
 
 ## Videos
 

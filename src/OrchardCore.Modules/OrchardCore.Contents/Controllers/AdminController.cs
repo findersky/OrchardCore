@@ -3,10 +3,8 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Localization;
-using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.AspNetCore.Routing;
-using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Options;
 using OrchardCore.Admin;
@@ -20,6 +18,7 @@ using OrchardCore.Contents.ViewModels;
 using OrchardCore.DisplayManagement;
 using OrchardCore.DisplayManagement.ModelBinding;
 using OrchardCore.DisplayManagement.Notify;
+using OrchardCore.Mvc.ModelBinding;
 using OrchardCore.Navigation;
 using OrchardCore.Routing;
 using OrchardCore.Security.Permissions;
@@ -73,8 +72,8 @@ public sealed class AdminController : Controller, IUpdateModel
         [ModelBinder(BinderType = typeof(ContentItemFilterEngineModelBinder), Name = "q")] QueryFilterResult<ContentItem> queryFilterResult,
         ContentOptionsViewModel options,
         PagerParameters pagerParameters,
-        string contentTypeId = "",
-        string stereotype = "")
+        [ModelBinder(BinderType = typeof(CommaSeparatedStringArrayModelBinder))] string[] contentTypeId = null,
+        [ModelBinder(BinderType = typeof(CommaSeparatedStringArrayModelBinder))] string[] stereotype = null)
     {
         var contentTypeDefinitions = (await _contentDefinitionManager.ListTypeDefinitionsAsync())
             .OrderBy(ctd => ctd.DisplayName)
@@ -85,10 +84,14 @@ public sealed class AdminController : Controller, IUpdateModel
             return Forbid();
         }
 
+        var contentTypeIds = contentTypeId is { Length: > 1 }
+            ? contentTypeId.Distinct(StringComparer.Ordinal).ToArray()
+            : contentTypeId;
+
         // The parameter contentTypeId is used by the AdminMenus. Pass it to the options.
-        if (!string.IsNullOrEmpty(contentTypeId))
+        if (contentTypeIds is { Length: 1 })
         {
-            options.SelectedContentType = contentTypeId;
+            options.SelectedContentType = contentTypeIds[0];
         }
 
         // The filter is bound separately and mapped to the options.
@@ -96,6 +99,7 @@ public sealed class AdminController : Controller, IUpdateModel
         options.FilterResult = queryFilterResult;
 
         var hasSelectedContentType = !string.IsNullOrEmpty(options.SelectedContentType);
+        var hasMultipleContentTypes = !hasSelectedContentType && contentTypeIds is { Length: > 1 };
 
         if (hasSelectedContentType)
         {
@@ -110,20 +114,60 @@ public sealed class AdminController : Controller, IUpdateModel
 
             options.CreatableTypes = await GetCreatableTypeOptionsAsync(options.CanCreateSelectedContentType, contentTypeDefinition);
         }
-
-        if (!hasSelectedContentType && !string.IsNullOrEmpty(stereotype))
+        else if (hasMultipleContentTypes)
         {
-            // When a stereotype is provided via the query parameter or options a placeholder node is used to apply a filter.
-            options.FilterResult.TryAddOrReplace(new StereotypeFilterNode(stereotype));
+            // When multiple content type IDs are provided, a placeholder node is used to apply a filter for all of them.
+            options.FilterResult.TryAddOrReplace(new ContentTypeFilterNode(contentTypeIds));
 
-            var availableContentTypeDefinitions = contentTypeDefinitions
-                .Where(definition => definition.StereotypeEquals(stereotype, StringComparison.OrdinalIgnoreCase))
+            var typeDefinitions = contentTypeIds
+                .Select(id => contentTypeDefinitions.FirstOrDefault(d => string.Equals(d.Name, id, StringComparison.Ordinal)))
+                .Where(d => d != null)
                 .ToArray();
 
-            if (availableContentTypeDefinitions.Length > 0)
+            if (typeDefinitions.Length > 0)
             {
-                options.ContentTypeOptions = await GetListableContentTypeOptionsAsync(availableContentTypeDefinitions, options.SelectedContentType, false);
-                options.CreatableTypes = await GetCreatableTypeOptionsAsync(options.CanCreateSelectedContentType, availableContentTypeDefinitions);
+                options.ContentTypeOptions = await GetListableContentTypeOptionsAsync(typeDefinitions, options.SelectedContentType, false);
+                options.CreatableTypes = await GetCreatableTypeOptionsAsync(false, typeDefinitions);
+            }
+        }
+
+        var stereotypes = stereotype is { Length: > 1 }
+            ? stereotype.Distinct(StringComparer.OrdinalIgnoreCase).ToArray()
+            : stereotype;
+
+        if (!hasSelectedContentType && !hasMultipleContentTypes)
+        {
+            if (stereotypes is { Length: 1 })
+            {
+                var singleStereotype = stereotypes[0];
+
+                // When a stereotype is provided via the query parameter or options a placeholder node is used to apply a filter.
+                options.FilterResult.TryAddOrReplace(new StereotypeFilterNode(singleStereotype));
+
+                var availableContentTypeDefinitions = contentTypeDefinitions
+                    .Where(definition => definition.StereotypeEquals(singleStereotype, StringComparison.OrdinalIgnoreCase))
+                    .ToArray();
+
+                if (availableContentTypeDefinitions.Length > 0)
+                {
+                    options.ContentTypeOptions = await GetListableContentTypeOptionsAsync(availableContentTypeDefinitions, options.SelectedContentType, false);
+                    options.CreatableTypes = await GetCreatableTypeOptionsAsync(options.CanCreateSelectedContentType, availableContentTypeDefinitions);
+                }
+            }
+            else if (stereotypes is { Length: > 1 })
+            {
+                // When multiple stereotypes are provided, a placeholder node is used to apply a filter for all of them.
+                options.FilterResult.TryAddOrReplace(new StereotypeFilterNode(stereotypes));
+
+                var availableContentTypeDefinitions = contentTypeDefinitions
+                    .Where(definition => stereotypes.Any(s => definition.StereotypeEquals(s, StringComparison.OrdinalIgnoreCase)))
+                    .ToArray();
+
+                if (availableContentTypeDefinitions.Length > 0)
+                {
+                    options.ContentTypeOptions = await GetListableContentTypeOptionsAsync(availableContentTypeDefinitions, options.SelectedContentType, false);
+                    options.CreatableTypes = await GetCreatableTypeOptionsAsync(options.CanCreateSelectedContentType, availableContentTypeDefinitions);
+                }
             }
         }
 
@@ -167,7 +211,7 @@ public sealed class AdminController : Controller, IUpdateModel
         ];
 
         if (options.ContentTypeOptions == null
-            && (string.IsNullOrEmpty(options.SelectedContentType) || string.IsNullOrEmpty(contentTypeId)))
+            && (string.IsNullOrEmpty(options.SelectedContentType) || contentTypeIds is not { Length: > 0 }))
         {
             options.ContentTypeOptions = await GetListableContentTypeOptionsAsync(contentTypeDefinitions, options.SelectedContentType, true);
         }
@@ -314,14 +358,16 @@ public sealed class AdminController : Controller, IUpdateModel
                 case ContentsBulkAction.Remove:
                     foreach (var item in checkedContentItems)
                     {
-                        if (!await IsAuthorizedAsync(CommonPermissions.DeleteContent, item))
+                        if (await IsAuthorizedAsync(CommonPermissions.DeleteContent, item) is var authorized
+                            && !(authorized && await _contentManager.RemoveAsync(item)))
                         {
                             await _notifier.WarningAsync(H["Couldn't remove selected content."]);
                             await _session.CancelAsync();
-                            return Forbid();
-                        }
 
-                        await _contentManager.RemoveAsync(item);
+                            return authorized
+                               ? RedirectToAction(nameof(List))
+                               : Forbid();
+                        }
                     }
                     await _notifier.SuccessAsync(H["Content removed successfully."]);
                     break;
@@ -335,14 +381,9 @@ public sealed class AdminController : Controller, IUpdateModel
     [Admin("Contents/ContentTypes/{id}/Create", "CreateContentItem")]
     public async Task<IActionResult> Create(string id)
     {
-        if (string.IsNullOrWhiteSpace(id))
-        {
-            return NotFound();
-        }
+        var contentItem = await _contentManager.NewAsync(id);
 
-        var contentItem = await CreateContentItemOwnedByCurrentUserAsync(id);
-
-        if (!await IsAuthorizedAsync(CommonPermissions.EditContent, contentItem))
+        if (!await _authorizationService.AuthorizeContentTypeAsync(User, CommonPermissions.EditContent, id, CurrentUserId()))
         {
             return Forbid();
         }
@@ -463,7 +504,6 @@ public sealed class AdminController : Controller, IUpdateModel
         var stayOnSamePage = submitSave == "submit.SaveAndContinue";
         return EditInternalAsync(contentItemId, returnUrl, stayOnSamePage, async contentItem =>
         {
-            await _contentManager.UpdateAsync(contentItem);
             await _contentManager.SaveDraftAsync(contentItem);
 
             var typeDefinition = await _contentDefinitionManager.GetTypeDefinitionAsync(contentItem.ContentType);
@@ -482,38 +522,44 @@ public sealed class AdminController : Controller, IUpdateModel
     public async Task<IActionResult> EditAndPublishPOST(
         string contentItemId,
         [Bind(Prefix = "submit.Publish")] string submitPublish,
-        string returnUrl)
+        string returnUrl) => await PublishOrUnpublishAsync(submitPublish == "submit.PublishAndContinue", contentItemId, returnUrl, publish: true);
+
+    [HttpPost]
+    [ActionName(nameof(Edit))]
+    [FormValueRequired("submit.Unpublish")]
+    public async Task<IActionResult> EditAndUnpublishPOST(
+    string contentItemId,
+    [Bind(Prefix = "submit.Unpublish")] string submitUnpublish,
+    string returnUrl) => await PublishOrUnpublishAsync(submitUnpublish == "submit.UnpublishAndContinue", contentItemId, returnUrl, publish: false);
+
+    [HttpPost]
+    public async Task<IActionResult> Delete(string contentItemId, string returnUrl)
     {
-        var stayOnSamePage = submitPublish == "submit.PublishAndContinue";
+        var contentItem = await _contentManager.GetAsync(contentItemId, VersionOptions.Latest);
 
-        var content = await _contentManager.GetAsync(contentItemId, VersionOptions.Latest);
-
-        if (content == null)
+        if (contentItem == null)
         {
             return NotFound();
         }
 
-        if (!await IsAuthorizedAsync(CommonPermissions.PublishContent, content))
+        if (!await IsAuthorizedAsync(CommonPermissions.DeleteContent, contentItem))
         {
             return Forbid();
         }
 
-        return await EditInternalAsync(contentItemId, returnUrl, stayOnSamePage, async contentItem =>
+        var removed = await _contentManager.RemoveAsync(contentItem);
+        if (removed)
         {
-            await _contentManager.UpdateAsync(contentItem);
-            var published = await _contentManager.PublishAsync(contentItem);
+            await _notifier.SuccessAsync(H["Your content has been deleted."]);
+        }
+        else if (Url.IsLocalUrl(returnUrl))
+        {
+            await _notifier.ErrorAsync(H["The operation was canceled."]);
+        }
 
-            var typeDefinition = await _contentDefinitionManager.GetTypeDefinitionAsync(contentItem.ContentType);
-
-            if (published)
-            {
-                await _notifier.SuccessAsync(string.IsNullOrWhiteSpace(typeDefinition?.DisplayName)
-                ? H["Your content has been published."]
-                : H["Your {0} has been published.", typeDefinition.DisplayName]);
-            }
-
-            return published;
-        });
+        return Url.IsLocalUrl(returnUrl)
+            ? this.LocalRedirect(returnUrl, true)
+            : RedirectToAction(nameof(List));
     }
 
     [HttpPost]
@@ -593,13 +639,19 @@ public sealed class AdminController : Controller, IUpdateModel
 
         if (contentItem != null)
         {
-            await _contentManager.RemoveAsync(contentItem);
+            var removed = await _contentManager.RemoveAsync(contentItem);
+            if (removed)
+            {
+                var typeDefinition = await _contentDefinitionManager.GetTypeDefinitionAsync(contentItem.ContentType);
 
-            var typeDefinition = await _contentDefinitionManager.GetTypeDefinitionAsync(contentItem.ContentType);
-
-            await _notifier.SuccessAsync(string.IsNullOrWhiteSpace(typeDefinition?.DisplayName)
-                ? H["That content has been removed."]
-                : H["That {0} has been removed.", typeDefinition.DisplayName]);
+                await _notifier.SuccessAsync(string.IsNullOrWhiteSpace(typeDefinition?.DisplayName)
+                    ? H["That content has been removed."]
+                    : H["That {0} has been removed.", typeDefinition.DisplayName]);
+            }
+            else if (Url.IsLocalUrl(returnUrl))
+            {
+                await _notifier.ErrorAsync(H["The operation was canceled."]);
+            }
         }
 
         return Url.IsLocalUrl(returnUrl)
@@ -695,7 +747,7 @@ public sealed class AdminController : Controller, IUpdateModel
         bool stayOnSamePage,
         Func<ContentItem, Task<bool>> conditionallyPublish)
     {
-        var contentItem = await CreateContentItemOwnedByCurrentUserAsync(id);
+        var contentItem = await _contentManager.NewAsync(id);
 
         if (!await IsAuthorizedAsync(CommonPermissions.EditContent, contentItem))
         {
@@ -750,6 +802,11 @@ public sealed class AdminController : Controller, IUpdateModel
 
         var model = await _contentItemDisplayManager.UpdateEditorAsync(contentItem, this, false);
 
+        if (ModelState.IsValid)
+        {
+            await _contentManager.UpdateAsync(contentItem);
+        }
+
         if (!ModelState.IsValid || !(await conditionallyPublish(contentItem)))
         {
             await _session.CancelAsync();
@@ -782,12 +839,15 @@ public sealed class AdminController : Controller, IUpdateModel
     {
         var options = new List<SelectListItem>();
 
-        foreach (var contentTypeDefinition in contentTypeDefinitions)
+        var userId = CurrentUserId();
+
+        // Always sort the content types by their display name to make UX selection easier.
+        foreach (var contentTypeDefinition in contentTypeDefinitions.OrderBy(x => x.DisplayName))
         {
             // Allows non creatable types to be created by another admin page.
             var creatable = contentTypeDefinition.IsCreatable() || canCreateSelectedContentType;
 
-            if (creatable && await _authorizationService.AuthorizeContentTypeAsync(User, CommonPermissions.EditContent, contentTypeDefinition, CurrentUserId()))
+            if (creatable && await _authorizationService.AuthorizeContentTypeAsync(User, CommonPermissions.EditContent, contentTypeDefinition, userId))
             {
                 // Populate the creatable types.
                 options.Add(new SelectListItem(contentTypeDefinition.DisplayName, contentTypeDefinition.Name));
@@ -825,14 +885,6 @@ public sealed class AdminController : Controller, IUpdateModel
         return items;
     }
 
-    private async Task<ContentItem> CreateContentItemOwnedByCurrentUserAsync(string contentType)
-    {
-        var contentItem = await _contentManager.NewAsync(contentType);
-        contentItem.Owner = CurrentUserId();
-
-        return contentItem;
-    }
-
     private string _currentUserId;
 
     private string CurrentUserId()
@@ -856,5 +908,49 @@ public sealed class AdminController : Controller, IUpdateModel
         TempData[nameof(ModelState)] = JsonSerializer.Serialize(errors);
 
         return RedirectToAction(nameof(List));
+    }
+
+    private async Task<IActionResult> PublishOrUnpublishAsync(bool stayOnSamePage, string contentItemId, string returnUrl, bool publish)
+    {
+        var content = await _contentManager.GetAsync(contentItemId, VersionOptions.Latest);
+
+        if (content == null)
+        {
+            return NotFound();
+        }
+
+        if (!await IsAuthorizedAsync(CommonPermissions.PublishContent, content))
+        {
+            return Forbid();
+        }
+
+        return await EditInternalAsync(contentItemId, returnUrl, stayOnSamePage, async contentItem =>
+        {
+            var hasBeenPublishedOrUnpublished = publish
+                ? await _contentManager.PublishAsync(contentItem)
+                : await _contentManager.UnpublishAsync(contentItem);
+
+            if (hasBeenPublishedOrUnpublished)
+            {
+                var typeDefinition = await _contentDefinitionManager.GetTypeDefinitionAsync(contentItem.ContentType);
+
+                if (publish)
+                {
+                    await _notifier.SuccessAsync(
+                        string.IsNullOrWhiteSpace(typeDefinition?.DisplayName)
+                            ? H["Your content has been published."]
+                            : H["Your {0} has been published.", typeDefinition.DisplayName]);
+                }
+                else
+                {
+                    await _notifier.SuccessAsync(
+                        string.IsNullOrWhiteSpace(typeDefinition?.DisplayName)
+                            ? H["Your content has been unpublished."]
+                            : H["Your {0} has been unpublished.", typeDefinition.DisplayName]);
+                }
+            }
+
+            return hasBeenPublishedOrUnpublished;
+        });
     }
 }

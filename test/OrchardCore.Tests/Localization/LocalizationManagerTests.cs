@@ -4,11 +4,11 @@ using OrchardCore.Tests.Apis.Context;
 
 namespace OrchardCore.Tests.Localization;
 
-public class LocalizationManagerTests
+public class LocalizationManagerTests : IDisposable
 {
     private readonly Mock<IPluralRuleProvider> _pluralRuleProvider;
     private readonly Mock<ITranslationProvider> _translationProvider;
-    private readonly IMemoryCache _memoryCache;
+    private readonly MemoryCache _memoryCache;
 
     public LocalizationManagerTests()
     {
@@ -22,7 +22,7 @@ public class LocalizationManagerTests
     }
 
     [Fact]
-    public void GetDictionaryReturnsDictionaryWithPluralRuleAndCultureIfNoTranslationsExists()
+    public void GetDictionaryReturnsDictionaryWithPluralRuleAndCultureIfNoTranslationsExists_Default_Succeeds()
     {
         _translationProvider.Setup(o => o.LoadTranslations(
             It.Is<string>(culture => culture == "cs"),
@@ -38,7 +38,7 @@ public class LocalizationManagerTests
     }
 
     [Fact]
-    public void GetDictionaryReturnsDictionaryWithTranslationsFromProvider()
+    public void GetDictionaryReturnsDictionaryWithTranslationsFromProvider_Default_Succeeds()
     {
         var dictionaryRecord = new CultureDictionaryRecord("ball", "míč", "míče", "míčů");
         _translationProvider
@@ -56,7 +56,7 @@ public class LocalizationManagerTests
     }
 
     [Fact]
-    public void GetDictionarySelectsPluralRuleFromProviderWithHigherPriority()
+    public void GetDictionarySelectsPluralRuleFromProviderWithHigherPriority_Default_Succeeds()
     {
         PluralizationRuleDelegate csPluralRuleOverride = n => ((n == 1) ? 0 : (n >= 2 && n <= 4) ? 1 : 0);
 
@@ -79,7 +79,7 @@ public class LocalizationManagerTests
     [Theory]
     [InlineData("en", "Hello en !")]
     [InlineData("zh-CN", "你好！")]
-    public async Task TestLocalizationRule(string culture, string expected)
+    public async Task LocalizationRule_Default_Succeeds(string culture, string expected)
     {
         var context = new SiteContext();
         await context.InitializeAsync();
@@ -127,4 +127,6 @@ public class LocalizationManagerTests
             return Task.CompletedTask;
         });
     }
+
+    public void Dispose() => _memoryCache?.Dispose();
 }

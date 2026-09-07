@@ -20,7 +20,7 @@ public class DefaultContentManager : IContentManager
 {
     private const int _importBatchSize = 500;
 
-    private static readonly JsonMergeSettings _updateJsonMergeSettings = new()
+    private static readonly JsonMergeSettings s_updateJsonMergeSettings = new()
     {
         MergeArrayHandling = MergeArrayHandling.Replace,
     };
@@ -69,7 +69,10 @@ public class DefaultContentManager : IContentManager
         ArgumentException.ThrowIfNullOrEmpty(contentType);
 
         var contentTypeDefinition = await _contentDefinitionManager.GetTypeDefinitionAsync(contentType);
-        contentTypeDefinition ??= new ContentTypeDefinitionBuilder().Named(contentType).Build();
+
+        contentTypeDefinition ??= new ContentTypeDefinitionBuilder()
+            .WithName(contentType)
+            .Build();
 
         // Create a new kernel for the model instance.
         var context = new ActivatingContentContext(new ContentItem() { ContentType = contentTypeDefinition.Name })
@@ -311,7 +314,7 @@ public class DefaultContentManager : IContentManager
             }
         }
 
-        return finalItems;
+        return finalItems.OrderBy(contentItem => Array.IndexOf(ids, contentItem.ContentItemId));
     }
 
     public async Task<ContentItem> LoadAsync(ContentItem contentItem)
@@ -598,7 +601,7 @@ public class DefaultContentManager : IContentManager
         return finalVersions;
     }
 
-    public async Task CreateAsync(ContentItem contentItem, VersionOptions options = null)
+    public async Task<bool> CreateAsync(ContentItem contentItem, VersionOptions options = null)
     {
         if (string.IsNullOrEmpty(contentItem.ContentItemVersionId))
         {
@@ -622,6 +625,24 @@ public class DefaultContentManager : IContentManager
         // invoke handlers to add information to persistent stores.
         await Handlers.InvokeAsync((handler, context) => handler.CreatingAsync(context), context, _logger);
 
+        if (context.Cancel)
+        {
+            if (_updateModelAccessor.ModelUpdater is not null)
+            {
+                var typeDefinition = await _contentDefinitionManager.GetTypeDefinitionAsync(contentItem.ContentType);
+                if (string.IsNullOrEmpty(typeDefinition?.DisplayName))
+                {
+                    _updateModelAccessor.ModelUpdater.ModelState.AddModelError("", S["Creating '{0}' was canceled.", contentItem.DisplayText]);
+                }
+                else
+                {
+                    _updateModelAccessor.ModelUpdater.ModelState.AddModelError("", S["Creating {0} '{1}' was canceled.", typeDefinition.DisplayName, contentItem.DisplayText]);
+                }
+            }
+
+            return false;
+        }
+
         await _session.SaveAsync(contentItem);
         _contentManagerSession.Store(contentItem);
 
@@ -637,6 +658,8 @@ public class DefaultContentManager : IContentManager
             // invoke handlers to acquire state, or at least establish lazy loading callbacks.
             await ReversedHandlers.InvokeAsync((handler, context) => handler.PublishedAsync(context), publishContext, _logger);
         }
+
+        return true;
     }
 
     public Task<ContentValidateResult> CreateContentItemVersionAsync(ContentItem contentItem)
@@ -691,7 +714,10 @@ public class DefaultContentManager : IContentManager
                 {
                     if (importedVersionIds.Contains(importingItem.ContentItemVersionId))
                     {
-                        _logger.LogInformation("Duplicate content item version id '{ContentItemVersionId}' skipped", importingItem.ContentItemVersionId);
+                        if (_logger.IsEnabled(LogLevel.Information))
+                        {
+                            _logger.LogInformation("Duplicate content item version id '{ContentItemVersionId}' skipped", importingItem.ContentItemVersionId);
+                        }
                         continue;
                     }
 
@@ -753,7 +779,10 @@ public class DefaultContentManager : IContentManager
 
                     if (JsonNode.DeepEquals(jImporting, jOriginal))
                     {
-                        _logger.LogInformation("Importing '{ContentItemVersionId}' skipped as it is unchanged", importingItem.ContentItemVersionId);
+                        if (_logger.IsEnabled(LogLevel.Information))
+                        {
+                            _logger.LogInformation("Importing '{ContentItemVersionId}' skipped as it is unchanged", importingItem.ContentItemVersionId);
+                        }
                         continue;
                     }
 
@@ -810,11 +839,6 @@ public class DefaultContentManager : IContentManager
 
         await ReversedHandlers.InvokeAsync((handler, context) => handler.ValidatedAsync(context), validateContext, _logger);
 
-        if (!validateContext.ContentValidateResult.Succeeded)
-        {
-            await _session.CancelAsync();
-        }
-
         return validateContext.ContentValidateResult;
     }
 
@@ -838,7 +862,7 @@ public class DefaultContentManager : IContentManager
         var validationResult = await ValidateAsync(contentItem);
         if (!validationResult.Succeeded)
         {
-            // The session is already cancelled.
+            await _session.CancelAsync();
             return validationResult;
         }
 
@@ -876,7 +900,7 @@ public class DefaultContentManager : IContentManager
         return aspect;
     }
 
-    public async Task RemoveAsync(ContentItem contentItem)
+    public async Task<bool> RemoveAsync(ContentItem contentItem)
     {
         ArgumentNullException.ThrowIfNull(contentItem);
 
@@ -887,12 +911,28 @@ public class DefaultContentManager : IContentManager
 
         if (!activeVersions.Any())
         {
-            return;
+            return true;
         }
 
-        var context = new RemoveContentContext(contentItem, true);
+        var context = new RemoveContentContext(contentItem, true, RemoveContentReason.Deletion);
 
         await Handlers.InvokeAsync((handler, context) => handler.RemovingAsync(context), context, _logger);
+
+        if (context.Cancel)
+        {
+            var typeDefinition = await _contentDefinitionManager.GetTypeDefinitionAsync(contentItem.ContentType);
+
+            if (string.IsNullOrEmpty(typeDefinition?.DisplayName))
+            {
+                _updateModelAccessor.ModelUpdater.ModelState.AddModelError("", S["Deletion of '{0}' has been cancelled.", contentItem.DisplayText]);
+            }
+            else
+            {
+                _updateModelAccessor.ModelUpdater.ModelState.AddModelError("", S["Deleting {0} '{1}' has been cancelled.", typeDefinition.DisplayName, contentItem.DisplayText]);
+            }
+
+            return false;
+        }
 
         foreach (var version in activeVersions)
         {
@@ -902,6 +942,8 @@ public class DefaultContentManager : IContentManager
         }
 
         await ReversedHandlers.InvokeAsync((handler, context) => handler.RemovedAsync(context), context, _logger);
+
+        return true;
     }
 
     public async Task DiscardDraftAsync(ContentItem contentItem)
@@ -997,6 +1039,7 @@ public class DefaultContentManager : IContentManager
         var result = await ValidateAsync(contentItem);
         if (!result.Succeeded)
         {
+            await _session.CancelAsync();
             return result;
         }
 
@@ -1091,16 +1134,16 @@ public class DefaultContentManager : IContentManager
             await RemovePublishedVersionAsync(updatingVersion, evictionVersions);
         }
 
-        updatingVersion.Merge(updatedVersion, _updateJsonMergeSettings);
+        updatingVersion.Merge(updatedVersion, s_updateJsonMergeSettings);
         updatingVersion.Latest = importingLatest;
         updatingVersion.Published = importingPublished;
 
         await UpdateAsync(updatingVersion);
         var result = await ValidateAsync(updatingVersion);
 
-        // Session is cancelled now so previous updates to versions are cancelled also.
         if (!result.Succeeded)
         {
+            await _session.CancelAsync();
             return result;
         }
 
@@ -1176,7 +1219,7 @@ public class DefaultContentManager : IContentManager
 
         if (publishedVersion != null)
         {
-            var removeContext = new RemoveContentContext(contentItem, true);
+            var removeContext = new RemoveContentContext(contentItem, true, RemoveContentReason.NewVersion);
 
             await Handlers.InvokeAsync((handler, context) => handler.RemovingAsync(context), removeContext, _logger);
 
@@ -1204,7 +1247,7 @@ public class DefaultContentManager : IContentManager
 
         if (activeVersions.Any())
         {
-            var removeContext = new RemoveContentContext(contentItem, true);
+            var removeContext = new RemoveContentContext(contentItem, true, RemoveContentReason.NewVersion);
 
             await Handlers.InvokeAsync((handler, context) => handler.RemovingAsync(context), removeContext, _logger);
 

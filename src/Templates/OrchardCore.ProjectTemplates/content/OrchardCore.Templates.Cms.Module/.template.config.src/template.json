@@ -19,12 +19,8 @@
       "datatype": "choice",
       "choices": [
         {
-          "choice": "net8.0",
-          "description": "Target net8.0"
-        },
-        {
-          "choice": "net9.0",
-          "description": "Target net9.0"
+          "choice": "net10.0",
+          "description": "Target net10.0"
         }
       ],
       "replaces": "$(TemplateTargetPackageFramework)",
@@ -66,7 +62,6 @@
             "Settings/MyTestPartSettingsDisplayDriver.cs",
             "Settings/MyTestPartSettingsViewModel.cs",
             "ViewModels/MyTestPartViewModel.cs",
-            "Views/_ViewImports.cshtml",
             "Views/MyTestPart.Edit.cshtml",
             "Views/MyTestPart.liquid",
             "Views/MyTestPart_Summary.liquid",

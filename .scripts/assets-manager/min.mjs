@@ -10,11 +10,17 @@ import postcssRTLCSS from "postcss-rtlcss";
 import { Mode, Source } from "postcss-rtlcss/options";
 import { Buffer } from "buffer";
 import process from "node:process";
+import { normalizeLineEndings, writeAssetFile } from "./output.mjs";
 
 let action = process.argv[2];
 let mode = action === "build" ? "production" : "development";
 
-const config = JSON5.parse(Buffer.from(process.argv[3], "base64").toString("utf-8"));
+const encodedGroup = process.argv[3] ?? process.env.ASSETS_MANAGER_ENCODED_GROUP;
+if (!encodedGroup) {
+    console.error("Missing encoded group config.");
+    process.exit(1);
+}
+const config = JSON5.parse(Buffer.from(encodedGroup, "base64").toString("utf-8"));
 
 let dest = config.dest;
 let fileExtension = config.source.split(".").pop();
@@ -78,33 +84,32 @@ glob(config.source).then((files) => {
                     let fileInfo = path.parse(file);
 
                     if (fileInfo.ext === ".js") {
-                        let reader = await fs.readFile(file, "utf8");
+                        let reader = normalizeLineEndings(await fs.readFile(file, "utf8"));
 
                         await swc
-                            .minify(reader.replace(/(\r?\n|\r)/gm, "\n"), {
+                            .minify(reader, {
                                 compress: true,
                                 mangle: true,
                                 sourceMap: mode === "production",
                             })
-                            .then((output) => {
+                            .then(async (output) => {
                                 const minifiedTarget = path.join(dest, path.parse(target).name + ".min.js");
 
-                                fs.outputFile(minifiedTarget, output.code + "\n");
+                                await writeAssetFile(minifiedTarget, output.code + "\n");
                                 console.log(`Minified for prod from (${chalk.gray("from")}, ${chalk.cyan("to")})`, chalk.gray(file), chalk.cyan(minifiedTarget));
 
                                 if (mode === "production" && output.map) {
                                     const mappedTarget = path.join(dest, path.parse(target).name + ".map");
-                                    let normalized = output.map.replace(/(?:\\r\\n)/g, "\\n");
-                                    fs.outputFile(mappedTarget, normalized + "\n");
+                                    await writeAssetFile(mappedTarget, output.map + "\n");
                                     console.log(`Mapped (${chalk.gray("from")}, ${chalk.cyan("to")})`, chalk.gray(file), chalk.cyan(mappedTarget));
                                 }
 
-                                fs.outputFile(target, output.code + "\n" + "//# sourceMappingURL=" + path.parse(target).name + ".map");
+                                await writeAssetFile(target, output.code + "\n" + "//# sourceMappingURL=" + path.parse(target).name + ".map");
                                 console.log(`Minified for dev from (${chalk.gray("from")}, ${chalk.cyan("to")})`, chalk.gray(file), chalk.cyan(target));
                                 
                             });
                     } else if (fileInfo.ext === ".css") {
-                        let reader = await fs.readFile(file, "utf8");
+                        let reader = normalizeLineEndings(await fs.readFile(file, "utf8"));
 
                         if (config.generateRTL) {
                             const rtlTarget = path.join(dest, path.parse(target).name + ".css");
@@ -122,8 +127,7 @@ glob(config.source).then((files) => {
 
                         const copyTarget = path.join(dest, path.parse(target).base);
 
-                        await fs
-                            .outputFile(copyTarget, reader)
+                        await writeAssetFile(copyTarget, reader)
                             .then(() => {
                                 console.log(`Copied (${chalk.gray("from")}, ${chalk.cyan("to")})`, chalk.gray(file), chalk.cyan(target));
                             })
@@ -139,7 +143,7 @@ glob(config.source).then((files) => {
 
                         if (code) {
                             const minifiedTarget = path.join(dest, path.parse(target).name + ".min.css");
-                            await fs.outputFile(minifiedTarget, code.toString());
+                            await writeAssetFile(minifiedTarget, code.toString());
                             console.log(`Minified (${chalk.gray("from")}, ${chalk.cyan("to")})`, chalk.gray(file), chalk.cyan(minifiedTarget));
                         }
                     } else {

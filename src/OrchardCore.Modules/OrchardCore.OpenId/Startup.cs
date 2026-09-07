@@ -3,6 +3,7 @@ using System.Diagnostics;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -23,6 +24,7 @@ using OrchardCore.Navigation;
 using OrchardCore.OpenId.Configuration;
 using OrchardCore.OpenId.Deployment;
 using OrchardCore.OpenId.Drivers;
+using OrchardCore.OpenId.Handlers;
 using OrchardCore.OpenId.Migrations;
 using OrchardCore.OpenId.Recipes;
 using OrchardCore.OpenId.Services;
@@ -30,8 +32,10 @@ using OrchardCore.OpenId.Services.Handlers;
 using OrchardCore.OpenId.Settings;
 using OrchardCore.OpenId.Tasks;
 using OrchardCore.Recipes;
+using OrchardCore.RateLimits;
 using OrchardCore.Security;
 using OrchardCore.Security.Permissions;
+using OrchardCore.Users;
 
 namespace OrchardCore.OpenId;
 
@@ -51,7 +55,6 @@ public sealed class Startup : StartupBase
             });
 
         services.AddPermissionProvider<Permissions>();
-        services.AddNavigationProvider<ManagementAdminMenu>();
     }
 }
 
@@ -93,6 +96,7 @@ public sealed class ServerStartup : StartupBase
             {
                 options.UseAspNetCore();
                 options.UseDataProtection();
+                options.AddEventHandler(PersistStoresHandler.Descriptor);
             });
 
         services.TryAddSingleton<IOpenIdServerService, OpenIdServerService>();
@@ -194,6 +198,17 @@ public sealed class ServerStartup : StartupBase
     }
 }
 
+[Feature(OpenIdConstants.Features.Server)]
+[RequireFeatures("OrchardCore.RateLimits")]
+public sealed class ServerRateLimitsStartup : StartupBase
+{
+    public override void ConfigureServices(IServiceCollection services)
+    {
+        services.Configure<RateLimitsOptions>(options =>
+            options.AddRouteRateLimit("Access.Token", HttpMethods.Post, RateLimitPartitionHelpers.CreateSlidingWindowPerIpPolicy(UserRateLimiterPolicyNames.PasswordAuthentication, 10)));
+    }
+}
+
 [RequireFeatures("OrchardCore.Deployment", OpenIdConstants.Features.Server)]
 public sealed class ServerDeploymentStartup : StartupBase
 {
@@ -209,6 +224,10 @@ public sealed class ValidationStartup : StartupBase
     public override void ConfigureServices(IServiceCollection services)
     {
         services.AddNavigationProvider<ValidationAdminMenu>();
+
+        // Used to attach RFC 9457 Problem Details bodies to the challenge responses produced
+        // by the OpenIddict validation handler, honoring app-level ProblemDetails customizations.
+        services.AddProblemDetails();
 
         services.AddOpenIddict()
             .AddValidation(options =>
@@ -248,6 +267,15 @@ public sealed class ValidationDeploymentStartup : StartupBase
     public override void ConfigureServices(IServiceCollection services)
     {
         services.AddDeployment<OpenIdValidationDeploymentSource, OpenIdValidationDeploymentStep, OpenIdValidationDeploymentStepDriver>();
+    }
+}
+
+[Feature(OpenIdConstants.Features.Management)]
+public sealed class ManagementStartup : StartupBase
+{
+    public override void ConfigureServices(IServiceCollection services)
+    {
+        services.AddNavigationProvider<ManagementAdminMenu>();
     }
 }
 

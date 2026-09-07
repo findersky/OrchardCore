@@ -8,12 +8,12 @@ using OrchardCore.DisplayManagement.Handlers;
 using OrchardCore.DisplayManagement.Views;
 using OrchardCore.Email;
 using OrchardCore.Email.Azure;
+using OrchardCore.Email.Azure.Models;
 using OrchardCore.Email.Azure.Services;
 using OrchardCore.Email.Azure.ViewModels;
-using OrchardCore.Email.Core;
 using OrchardCore.Email.Services;
 using OrchardCore.Entities;
-using OrchardCore.Environment.Shell;
+using OrchardCore.Environment.Options;
 using OrchardCore.Mvc.ModelBinding;
 using OrchardCore.Settings;
 
@@ -21,7 +21,7 @@ namespace OrchardCore.Azure.Email.Drivers;
 
 public sealed class AzureEmailSettingsDisplayDriver : SiteDisplayDriver<AzureEmailSettings>
 {
-    private readonly IShellReleaseManager _shellReleaseManager;
+    private readonly IOptionsUpdateNotifier _optionsUpdateNotifier;
     private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly IAuthorizationService _authorizationService;
     private readonly IDataProtectionProvider _dataProtectionProvider;
@@ -30,14 +30,14 @@ public sealed class AzureEmailSettingsDisplayDriver : SiteDisplayDriver<AzureEma
     internal readonly IStringLocalizer S;
 
     public AzureEmailSettingsDisplayDriver(
-        IShellReleaseManager shellReleaseManager,
+        IOptionsUpdateNotifier optionsUpdateNotifier,
         IHttpContextAccessor httpContextAccessor,
         IAuthorizationService authorizationService,
         IDataProtectionProvider dataProtectionProvider,
         IEmailAddressValidator emailValidator,
         IStringLocalizer<AzureEmailSettingsDisplayDriver> stringLocalizer)
     {
-        _shellReleaseManager = shellReleaseManager;
+        _optionsUpdateNotifier = optionsUpdateNotifier;
         _httpContextAccessor = httpContextAccessor;
         _authorizationService = authorizationService;
         _dataProtectionProvider = dataProtectionProvider;
@@ -59,7 +59,7 @@ public sealed class AzureEmailSettingsDisplayDriver : SiteDisplayDriver<AzureEma
         {
             model.IsEnabled = settings.IsEnabled;
             model.DefaultSender = settings.DefaultSender;
-            model.HasConnectionString = !string.IsNullOrWhiteSpace(settings.ConnectionString);
+            model.ConnectionString = settings.ConnectionString;
         }).Location("Content:5#Azure Communication Services")
         .OnGroup(SettingsGroupId);
     }
@@ -75,7 +75,7 @@ public sealed class AzureEmailSettingsDisplayDriver : SiteDisplayDriver<AzureEma
 
         await context.Updater.TryUpdateModelAsync(model, Prefix);
 
-        var emailSettings = site.As<EmailSettings>();
+        var emailSettings = site.GetOrCreate<EmailSettings>();
 
         var hasChanges = model.IsEnabled != settings.IsEnabled;
 
@@ -105,22 +105,24 @@ public sealed class AzureEmailSettingsDisplayDriver : SiteDisplayDriver<AzureEma
 
             settings.DefaultSender = model.DefaultSender;
 
-            if (string.IsNullOrWhiteSpace(model.ConnectionString)
-                && settings.ConnectionString is null)
+            if (string.IsNullOrWhiteSpace(model.ConnectionString))
             {
                 context.Updater.ModelState.AddModelError(Prefix, nameof(model.ConnectionString), S["Connection string is required."]);
             }
-            else if (!string.IsNullOrWhiteSpace(model.ConnectionString))
+            else
             {
-                // Encrypt the connection string.
-                var protector = _dataProtectionProvider.CreateProtector(AzureEmailOptionsConfiguration.ProtectorName);
+                if (model.ConnectionString != settings.ConnectionString)
+                {
+                    // Encrypt the connection string.
+                    var protector = _dataProtectionProvider.CreateProtector(AzureEmailOptionsConfiguration.ProtectorName);
 
-                var protectedConnection = protector.Protect(model.ConnectionString);
+                    var protectedConnection = protector.Protect(model.ConnectionString);
 
-                // Check if the connection string changed before setting it.
-                hasChanges |= protectedConnection != settings.ConnectionString;
+                    // Check if the connection string changed before setting it.
+                    hasChanges |= protectedConnection != settings.ConnectionString;
 
-                settings.ConnectionString = protectedConnection;
+                    settings.ConnectionString = protectedConnection;
+                }
             }
         }
 
@@ -137,7 +139,10 @@ public sealed class AzureEmailSettingsDisplayDriver : SiteDisplayDriver<AzureEma
 
             if (hasChanges)
             {
-                _shellReleaseManager.RequestRelease();
+                _optionsUpdateNotifier
+                    .RequestUpdate<AzureEmailOptions>()
+                    .RequestUpdate<EmailProviderOptions>()
+                    .RequestUpdate<EmailOptions>();
             }
         }
 

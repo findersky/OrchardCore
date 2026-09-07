@@ -18,7 +18,7 @@ These guides are specific to Orchard Core CMS
 - [Adding a Menu Item to the Admin Navigation](add-admin-menu/README.md)
 - [Installing Localization Files](install-localization-files/README.md)
 - [How to use the assets manager](assets-manager/README.md)
-- [How to use the old Gulp assets transpiler/bundler/minifier pipeline](gulp-pipeline/README.md)
+- [Old (deprecated) Gulp pipeline docs (historical reference)](gulp-pipeline/README.md)
 - [Integrate facebook plugins](integrate-facebook-plugins/README.md)
 - [Implement Full Text search](implement-fulltext-search/README.md)
 - [Integrate AzureAD as external provider](microsoft-entra-id-integration/README.md)
@@ -28,5 +28,5 @@ These guides are specific to Orchard Core CMS
 Designed to be completed in 2-3 hours, these guides provide deeper, in-context explorations of enterprise application development topics, leaving you ready to implement real-world solutions.
 
 - [Building a decoupled website with Razor Pages](decoupled-cms/README.md)
-- Building a Website from a Web Template (TBD)
+- [Building a Website from a Web Template](../topics/display/theme-from-html-template.md)
 - Implementing a Self-Service SaaS solution (TBD)

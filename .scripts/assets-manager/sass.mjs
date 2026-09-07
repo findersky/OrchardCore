@@ -11,10 +11,16 @@ import { Mode } from "postcss-rtlcss/options";
 import chokidar from "chokidar";
 import { Buffer } from "buffer";
 import process from "node:process";
+import { writeAssetFile } from "./output.mjs";
 
 let action = process.argv[2];
 let mode = action === "build" ? "production" : "development";
-const config = JSON5.parse(Buffer.from(process.argv[3], "base64").toString("utf-8"));
+const encodedGroup = process.argv[3] ?? process.env.ASSETS_MANAGER_ENCODED_GROUP;
+if (!encodedGroup) {
+    console.error("Missing encoded group config.");
+    process.exit(1);
+}
+const config = JSON5.parse(Buffer.from(encodedGroup, "base64").toString("utf-8"));
 const dest = config.dest ?? config.basePath + "/wwwroot/Styles/";
 
 if (config.dryRun) {
@@ -162,7 +168,7 @@ function runSass(config) {
 
                             if (scssResult.css) {
                                 const normalTarget = path.join(dest, path.parse(target).name + ".css");
-                                await fs.outputFile(normalTarget, scssResult.css);
+                                await writeAssetFile(normalTarget, scssResult.css);
                                 console.log(`Tranpiled (${chalk.gray("from")}, ${chalk.cyan("to")})`, chalk.gray(file), chalk.cyan(normalTarget));
 
                                 if (config.generateRTL) {
@@ -172,20 +178,20 @@ function runSass(config) {
 
                                     const result = await postcss([postcssRTLCSS(options)]).process(scssResult.css, { from: file });
 
-                                    await fs.outputFile(normalTarget, result.css);
+                                    await writeAssetFile(normalTarget, result.css);
                                     scssResult.css = result.css;
                                     console.log(`RTL (${chalk.gray("from")}, ${chalk.cyan("to")})`, chalk.gray(normalTarget), chalk.cyan(normalTarget));
                                 }
 
                                 let { code, map } = transform({
-                                    code: Buffer.from(scssResult.css),
+                                    code: Buffer.from(scssResult.css, 'utf-8'),
                                     minify: true,
                                     sourceMap: true,
                                 });
 
                                 if (code) {
                                     const minifiedTarget = path.join(dest, path.parse(target).name + ".min.css");
-                                    fs.outputFile(minifiedTarget, code);
+                                    await writeAssetFile(minifiedTarget, code);
                                     console.log(`Minified (${chalk.gray("from")}, ${chalk.cyan("to")})`, chalk.gray(normalTarget), chalk.cyan(minifiedTarget));
                                 }
 

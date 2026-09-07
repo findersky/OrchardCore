@@ -4,13 +4,38 @@ This feature provides SMS providers for sending SMS through [Azure Communication
 
 ## **Azure Communication Services** Provider Configuration
 
-Enabling this feature will introduce a new tab labeled **Azure Communication Services** within the SMS settings, allowing you to configure the service. To access these settings from the admin dashboard, navigate to `Configuration` → `Settings` → `Sms` and click on the **Azure Communication Services** tab. The following are the available settings.
+Enabling this feature will introduce a new tab labeled **Azure Communication Services** within the SMS settings, allowing you to configure the service. To access these settings from the admin dashboard, navigate to `Settings` → `Communication` → `SMS` and click on the **Azure Communication Services** tab. The following are the available settings.
 
 | Provider       | Description                                                                                                                               |
 |----------------|-------------------------------------------------------------------------------------------------------------------------------------------|
 | `Azure`        | This provider enables tenant-specific Azure Communication Services for sending SMS. Configure the SMS settings to activate this provider. |
 | `DefaultAzure` | This provider sets default Azure Communication Service configurations for all tenants.                                                    |
 
+
+## Recipe Configuration
+
+Azure SMS settings can be configured using the `Settings` recipe step:
+
+```json
+{
+  "steps": [
+    {
+      "name": "settings",
+      "AzureSmsSettings": {
+        "IsEnabled": true,
+        "ConnectionString": "endpoint=https://your-resource.communication.azure.com/;accesskey=...",
+        "PhoneNumber": "+1234567890"
+      }
+    }
+  ]
+}
+```
+
+| Property           | Type    | Description                                                       |
+|--------------------|---------|-------------------------------------------------------------------|
+| `IsEnabled`        | Boolean | Whether the Azure SMS provider is enabled.                        |
+| `ConnectionString` | String  | The Azure Communication Services connection string. **Required.** |
+| `PhoneNumber`      | String  | The phone number to send SMS messages from. **Required.**         |
 
 ## **Default Azure Communication Services** Provider Configuration
 

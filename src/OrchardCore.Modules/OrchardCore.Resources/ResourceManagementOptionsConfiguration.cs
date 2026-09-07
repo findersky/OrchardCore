@@ -15,7 +15,7 @@ public sealed class ResourceManagementOptionsConfiguration
 
     // Versions
     private const string CodeMirrorVersion = "5.65.7";
-    private const string MonacoEditorVersion = "0.46.0";
+    private const string MonacoEditorVersion = "0.52.2";
 
     // URLs
     private const string CloudflareUrl = "https://cdnjs.cloudflare.com/ajax/libs/";
@@ -35,6 +35,8 @@ public sealed class ResourceManagementOptionsConfiguration
     private ResourceManifest BuildManifest()
     {
         var manifest = new ResourceManifest();
+
+        // jQuery
 
         manifest
             .DefineScript("jQuery")
@@ -72,7 +74,7 @@ public sealed class ResourceManagementOptionsConfiguration
             .DefineScript("jQuery")
             .SetUrl(
                 "~/OrchardCore.Resources/Vendor/jquery-3.6.0/jquery.min.js",
-                "~/OrchardCore.Resources/Scripts/jquery.js"
+                "~/OrchardCore.Resources/Vendor/jquery-3.6.0/jquery.js"
             )
             .SetCdn(
                 "https://code.jquery.com/jquery-3.6.0.min.js",
@@ -88,7 +90,7 @@ public sealed class ResourceManagementOptionsConfiguration
             .DefineScript("jQuery.slim")
             .SetUrl(
                 "~/OrchardCore.Resources/Vendor/jquery-3.6.0/jquery.slim.min.js",
-                "~/OrchardCore.Resources/Scripts/jquery.slim.js"
+                "~/OrchardCore.Resources/Vendor/jquery-3.6.0/jquery.slim.js"
             )
             .SetCdn(
                 "https://code.jquery.com/jquery-3.6.0.slim.min.js",
@@ -185,56 +187,50 @@ public sealed class ResourceManagementOptionsConfiguration
             .DefineScript("jQuery-ui")
             .SetDependencies("jQuery")
             .SetUrl(
-                "~/OrchardCore.Resources/Vendor/jquery-ui-1.12.1/jquery-ui.min.js",
-                "~/OrchardCore.Resources/Vendor/jquery-ui-1.12.1/jquery-ui.js"
+                "~/OrchardCore.Resources/Vendor/jquery-ui-1.14.2/jquery-ui.min.js",
+                "~/OrchardCore.Resources/Vendor/jquery-ui-1.14.2/jquery-ui.js"
             )
             .SetCdn(
-                "https://code.jquery.com/ui/1.12.1/jquery-ui.min.js",
-                "https://code.jquery.com/ui/1.12.1/jquery-ui.js"
+                "https://code.jquery.com/ui/1.14.2/jquery-ui.min.js",
+                "https://code.jquery.com/ui/1.14.2/jquery-ui.js"
             )
             .SetCdnIntegrity(
-                "sha384-Dziy8F2VlJQLMShA6FHWNul/veM9bCkRUaLqr199K94ntO5QUrLJBEbYegdSkkqX",
-                "sha384-JPbtLYL10d/Z1crlc6GGGGM3PavCzzoUJ1UxH0bXHOfguWHQ6XAWrIzW+MBGGXe5"
+                "sha384-tBcEcHGtNy7/Mx08+YxuvQ6v6s0N2jgehtFiT+bLtGwTj/txXtB/L5GqXfggm5sS",
+                "sha384-sLsvouCXvbq3gcmJ2ByNHuPgQqCFvM1zxo0tilJPdEbKHcTG7M+F/9TU/VEEEIwf"
             )
-            .SetVersion("1.12.1");
+            .SetVersion("1.14.2");
 
         manifest
             .DefineStyle("jQuery-ui")
             .SetUrl(
-                "~/OrchardCore.Resources/Vendor/jquery-ui-1.12.1/Styles/jquery-ui.min.css",
-                "~/OrchardCore.Resources/Vendor/jquery-ui-1.12.1/Styles/jquery-ui.css"
+                "~/OrchardCore.Resources/Vendor/jquery-ui-1.14.2/Styles/jquery-ui.min.css",
+                "~/OrchardCore.Resources/Vendor/jquery-ui-1.14.2/Styles/jquery-ui.css"
             )
             .SetCdn(
-                "https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.min.css",
-                "https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css"
+                "https://code.jquery.com/ui/1.14.2/themes/base/jquery-ui.min.css",
+                "https://code.jquery.com/ui/1.14.2/themes/base/jquery-ui.css"
             )
             .SetCdnIntegrity(
-                "sha384-kcAOn9fN4XSd+TGsNu2OQKSuV5ngOwt7tg73O4EpaD91QXvrfgvf0MR7/2dUjoI6",
-                "sha384-xewr6kSkq3dBbEtB6Z/3oFZmknWn7nHqhLVLrYgzEFRbU/DHSxW7K3B44yWUN60D"
+                "sha384-U+0bB1oWRPqiRvCXEOkzg9QYIFdnYIg3x1AUPHhQXiKJsWa9jYCmZ6aXn4+FPqw6",
+                "sha384-pUvA/6DQjteMxpaV6uGxZ1QuYrFLJgrLMvBWf06VcJIg6ky/Y5m3UZJlrv11V1I+"
             )
-            .SetVersion("1.12.1");
+            .SetVersion("1.14.2");
 
         manifest
             .DefineScript("jQuery-ui-i18n")
             .SetDependencies("jQuery-ui")
             .SetUrl(
-                "~/OrchardCore.Resources/Scripts/jquery-ui-i18n.min.js",
-                "~/OrchardCore.Resources/Scripts/jquery-ui-i18n.js"
+                "~/OrchardCore.Resources/Vendor/jquery-ui-1.14.2/jquery-ui-i18n.min.js",
+                "~/OrchardCore.Resources/Vendor/jquery-ui-1.14.2/jquery-ui-i18n.js"
             )
-            .SetCdn(
-                "https://code.jquery.com/ui/1.7.2/i18n/jquery-ui-i18n.min.js",
-                "https://code.jquery.com/ui/1.7.2/i18n/jquery-ui-i18n.min.js"
-            )
-            .SetCdnIntegrity(
-                "sha384-0rV7y4NH7acVmq+7Y9GM6evymvReojk9li+7BYb/ug61uqPSsXJ4uIScVY+N9qtd",
-                "sha384-0rV7y4NH7acVmq+7Y9GM6evymvReojk9li+7BYb/ug61uqPSsXJ4uIScVY+N9qtd"
-            )
-            .SetVersion("1.7.2");
+            .SetVersion("1.14.2");
 
         manifest
             .DefineScript("jQuery.nestedSortable")
             .SetDependencies("jQuery-ui")
-            .SetUrl("~/OrchardCore.Resources/Scripts/jquery.mjs.nestedSortable.js")
+            .SetUrl(
+                "~/OrchardCore.Resources/Scripts/jquery.mjs.nestedSortable.min.js",
+                "~/OrchardCore.Resources/Scripts/jquery.mjs.nestedSortable.js")
             .SetCdn(
                 "https://cdn.jsdelivr.net/npm/nestedSortable@1.3.4/jquery.mjs.nestedSortable.js"
             )
@@ -242,6 +238,67 @@ public sealed class ResourceManagementOptionsConfiguration
                 "sha384-drmLwsDDXGEHmNZHoxS1StHzAllg9a/CKXv31Oe4wYiN9wqJNn+QQjAr6Cin+wyH"
             )
             .SetVersion("1.3.4");
+
+        manifest
+            .DefineScript("jQuery.nestedSortable")
+            .SetDependencies("jQuery-ui")
+            .SetUrl(
+                "~/OrchardCore.Resources/Vendor/nestedSortable-2.1a/jquery.mjs.nestedSortable.min.js",
+                "~/OrchardCore.Resources/Vendor/nestedSortable-2.1a/jquery.mjs.nestedSortable.js"
+            )
+            .SetVersion("2.1");
+
+        manifest
+            .DefineScript("jquery-resizable")
+            .SetDependencies("jQuery")
+            .SetUrl(
+                "~/OrchardCore.Resources/Scripts/jquery-resizable.min.js",
+                "~/OrchardCore.Resources/Scripts/jquery-resizable.js"
+            )
+            .SetCdn(
+                "https://cdn.jsdelivr.net/npm/jquery-resizable-dom@0.35.0/dist/jquery-resizable.min.js"
+            )
+            .SetCdnIntegrity(
+                "sha384-1LMjDEezsSgzlRgsyFIAvLW7FWSdFIHqBGjUa+ad5EqtK1FORC8XpTJ/pahxj5GB",
+                "sha384-0yk9X0IG0cXxuN9yTTkps/3TNNI9ZcaKKhh8dgqOEAWGXxIYS5xaY2as6b32Ov3P"
+            )
+            .SetVersion("0.35.0");
+
+        manifest
+            .DefineScript("jQuery-fileupload")
+            .SetDependencies("jQuery-ui")
+            .SetUrl(
+                "~/OrchardCore.Resources/Scripts/jquery.fileupload.min.js",
+                "~/OrchardCore.Resources/Scripts/jquery.fileupload.js"
+            )
+            .SetCdn(
+                "https://cdnjs.cloudflare.com/ajax/libs/blueimp-file-upload/10.32.0/js/jquery.fileupload.min.js",
+                "https://cdnjs.cloudflare.com/ajax/libs/blueimp-file-upload/10.32.0/js/jquery.fileupload.js"
+            )
+            .SetCdnIntegrity(
+                "sha384-t/a/G59hRbkwY9q4QtKeC8BJaq/iCa/XLqbU6//JWAIxECygr80ecZk1W/soXL1d",
+                "sha384-0kYSikha8p8NUXBb9/ZzkbnyTJ+q6uIYLDupH60G0s8ve9jFqDlCJGdOwEXOw9AF"
+            )
+            .SetVersion("10.32.0");
+
+        manifest
+            .DefineScript("jQuery-iframe-transport")
+            .SetDependencies("jQuery-fileupload")
+            .SetUrl(
+                "~/OrchardCore.Resources/Scripts/jquery.iframe-transport.min.js",
+                "~/OrchardCore.Resources/Scripts/jquery.iframe-transport.js"
+            )
+            .SetCdn(
+                "https://cdnjs.cloudflare.com/ajax/libs/blueimp-file-upload/10.32.0/js/jquery.iframe-transport.min.js",
+                "https://cdnjs.cloudflare.com/ajax/libs/blueimp-file-upload/10.32.0/js/jquery.iframe-transport.js"
+            )
+            .SetCdnIntegrity(
+                "sha384-RVSdJCLiwGZtzkZOWdlpY6AyDhmZHVAAx3bAbBlRxBIp1dD/MkkMOcbgWP9SgR8E",
+                "sha384-KcPleywUX7NFvy4q5aDI6viwF9nSWwDfABktBjWRuDEZA0TmoyNcwimFmKgNtXlC"
+            )
+            .SetVersion("10.32.0");
+
+        // Bootstrap
 
         manifest
             .DefineStyle("bootstrap-theme")
@@ -345,14 +402,14 @@ public sealed class ResourceManagementOptionsConfiguration
                 "~/OrchardCore.Resources/Scripts/bootstrap.js"
             )
             .SetCdn(
-                "https://cdn.jsdelivr.net/npm/bootstrap@5.3.6/dist/js/bootstrap.min.js",
-                "https://cdn.jsdelivr.net/npm/bootstrap@5.3.6/dist/js/bootstrap.js"
+                "https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.min.js",
+                "https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.js"
             )
             .SetCdnIntegrity(
-                "sha384-RuyvpeZCxMJCqVUGFI0Do1mQrods/hhxYlcVfGPOfQtPJh0JCw12tUAZ/Mv10S7D",
-                "sha384-C9UM413hb6FwXolzfmHwD3g+I5Cz3d2oBxqoWkzxe7IU27p1bGfZLZUYPIvfqABE"
+                "sha384-G/EV+4j2dNv+tEPo3++6LCgdCROaejBqfUeNjuKAiuXbjrxilcCdDz6ZAVfHWe1Y",
+                "sha384-C8GZT7abfugBh6OJBafyOVkzQPOyZNorS6QrwxpTzdwP/Osl/1MlCLq1D0enn8bH"
             )
-            .SetVersion("5.3.6");
+            .SetVersion("5.3.8");
 
         manifest
             .DefineScript("bootstrap-bundle")
@@ -362,14 +419,14 @@ public sealed class ResourceManagementOptionsConfiguration
                 "~/OrchardCore.Resources/Scripts/bootstrap.bundle.js"
             )
             .SetCdn(
-                "https://cdn.jsdelivr.net/npm/bootstrap@5.3.6/dist/js/bootstrap.bundle.min.js",
-                "https://cdn.jsdelivr.net/npm/bootstrap@5.3.6/dist/js/bootstrap.bundle.js"
+                "https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js",
+                "https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.js"
             )
             .SetCdnIntegrity(
-                "sha384-j1CDi7MgGQ12Z7Qab0qlWQ/Qqz24Gc6BM0thvEMVjHnfYGF0rmFCozFSxQBxwHKO",
-                "sha384-tcxuNjmU/dcp769u0TRMOD45CdtuScYrGA1/LBcwQA8Oex/WkXW5maQM1hIIbSvF"
+                "sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI",
+                "sha384-DXQlBty/lBVDkqL4VKQIlPyuBHCumaxsqVbwsQWRGh0NFBAkAAnOo7qlcR2x+hP9"
             )
-            .SetVersion("5.3.6");
+            .SetVersion("5.3.8");
 
         manifest
             .DefineStyle("bootstrap")
@@ -378,14 +435,14 @@ public sealed class ResourceManagementOptionsConfiguration
                 "~/OrchardCore.Resources/Styles/bootstrap.css"
             )
             .SetCdn(
-                "https://cdn.jsdelivr.net/npm/bootstrap@5.3.6/dist/css/bootstrap.min.css",
-                "https://cdn.jsdelivr.net/npm/bootstrap@5.3.6/dist/css/bootstrap.css"
+                "https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css",
+                "https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.css"
             )
             .SetCdnIntegrity(
-                "sha384-4Q6Gf2aSP4eDXB8Miphtr37CMZZQ5oXLH2yaXMJ2w8e2ZtHTl7GptT4jmndRuHDT",
-                "sha384-GxnqyHfAEqlHYcukmQgKA5lCv68Ax5EzStGToZaMSJhmpYozqDWsgMwEahPt2Zti"
+                "sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB",
+                "sha384-6qOMjEs/dk1B8DWuMdvpXhSoFK8G0LAZAgA0WCuiPYo4zOpviuNw5/7W4qLc2EdE"
             )
-            .SetVersion("5.3.6");
+            .SetVersion("5.3.8");
 
         manifest
             .DefineStyle("bootstrap-rtl")
@@ -394,53 +451,54 @@ public sealed class ResourceManagementOptionsConfiguration
                 "~/OrchardCore.Resources/Styles/bootstrap.rtl.css"
             )
             .SetCdn(
-                "https://cdn.jsdelivr.net/npm/bootstrap@5.3.6/dist/css/bootstrap.rtl.min.css",
-                "https://cdn.jsdelivr.net/npm/bootstrap@5.3.6/dist/css/bootstrap.rtl.css"
+                "https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.rtl.min.css",
+                "https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.rtl.css"
             )
             .SetCdnIntegrity(
-                "sha384-MdqCcafa5BLgxBDJ3d/4D292geNL64JyRtSGjEszRUQX9rhL1QkcnId+OT7Yw+D+",
-                "sha384-o1oA8P0dbQ3VrAYjwTUGeraS2iX7Vle6fz2bPmL9bFHo+cwrPvKuj6Q9SKbiRinq"
+                "sha384-CfCrinSRH2IR6a4e6fy2q6ioOX7O6Mtm1L9vRvFZ1trBncWmMePhzvafv7oIcWiW",
+                "sha384-4TgIb4yk2N9sOwkGO6cCd+ofxH9RiMLNtFyp1ryx4kACOKuYE0tJTP3Gzv0WqQ/t"
             )
-            .SetVersion("5.3.6");
+            .SetVersion("5.3.8");
 
         manifest
             .DefineStyle("bootstrap-select")
+            .SetDependencies("bootstrap")
             .SetUrl(
-                "~/OrchardCore.Resources/Styles/bootstrap-select.min.css",
-                "~/OrchardCore.Resources/Styles/bootstrap-select.css"
+                "~/OrchardCore.Resources/Vendor/CrestApps/bootstrap-select/bootstrap-select.min.css",
+                "~/OrchardCore.Resources/Vendor/CrestApps/bootstrap-select/bootstrap-select.css"
             )
             .SetCdn(
-                "https://cdn.jsdelivr.net/npm/bootstrap-select@1.14.0-beta3/dist/css/bootstrap-select.min.css",
-                "https://cdn.jsdelivr.net/npm/bootstrap-select@1.14.0-beta3/dist/css/bootstrap-select.css"
+                "https://cdn.jsdelivr.net/npm/@crestapps/bootstrap-select@1.2.4/dist/css/bootstrap-select.min.css",
+                "https://cdn.jsdelivr.net/npm/@crestapps/bootstrap-select@1.2.4/dist/css/bootstrap-select.css"
             )
             .SetCdnIntegrity(
-                "sha384-xF1Y2i6HgC34+4EWddbDhlQuru7cLSKRcPT3hoL3mPoKoV+624vVSZJmegPX77vS",
-                "sha384-DtuOZ7LbR+xAYzDGD4YLpe9eiAayUBwZRqAcoy+RepIoV53tAoJbXnr4AX1xTJ43"
+                "sha384-sQr5Em/mpvLjnu2huY8PDGrpItq+8qR2NHsVB4Kq4Zqb+LrBExUL7pid7pCJf10K",
+                "sha384-mG0OUnrbVYDYdq8PTDcpU2GSTM4bxIPJrOke74gIoPsH3T9qfC+rZe5DzkIuaMQc"
             )
-            .SetVersion("1.14.0");
+            .SetVersion("1.2.4");
 
         manifest
             .DefineScript("bootstrap-select")
-            .SetDependencies("jQuery", "bootstrap")
+            .SetDependencies("bootstrap")
             .SetUrl(
-                "~/OrchardCore.Resources/Scripts/bootstrap-select.min.js",
-                "~/OrchardCore.Resources/Scripts/bootstrap-select.js"
+                "~/OrchardCore.Resources/Vendor/CrestApps/bootstrap-select/bootstrap-select.min.js",
+                "~/OrchardCore.Resources/Vendor/CrestApps/bootstrap-select/bootstrap-select.js"
             )
             .SetCdn(
-                "https://cdn.jsdelivr.net/npm/bootstrap-select@1.14.0-beta3/dist/js/bootstrap-select.min.js",
-                "https://cdn.jsdelivr.net/npm/bootstrap-select@1.14.0-beta3/dist/js/bootstrap-select.js"
+                "https://cdn.jsdelivr.net/npm/@crestapps/bootstrap-select@1.2.4/dist/js/bootstrap-select.min.js",
+                "https://cdn.jsdelivr.net/npm/@crestapps/bootstrap-select@1.2.4/dist/js/bootstrap-select.js"
             )
             .SetCdnIntegrity(
-                "sha384-0O3sg2SQIGn4393xwamQISjphC8DIXjCzlhj1gPAMC5xGg+2perF5Mehr5njv0fZ",
-                "sha384-2b0aLFg/Ejp4OF57nW0BUqNzm259RHYYMf/mpKClBijsEH2P+4ea2oWAq0twd8L0"
+                "sha384-Bw1T257yCrZ7XkIute3Z7uYC0tE5602dCse3aVwTmy0Pnl7wRPorXO+dHH2m8n3p",
+                "sha384-uxbBuZEWDbdH0t6Lxy2N98Ix+6IzIp0lorXXkc1J4mjbINsZ0ALaNAMiaj+wojmJ"
             )
-            .SetVersion("1.14.0");
+            .SetVersion("1.2.4");
 
         manifest
             .DefineStyle("nouislider")
             .SetUrl(
-                "~/OrchardCore.Resources/Styles/nouislider.min.css",
-                "~/OrchardCore.Resources/Styles/nouislider.css"
+                "~/OrchardCore.Resources/Styles/nouislider/nouislider.min.css",
+                "~/OrchardCore.Resources/Styles/nouislider/nouislider.css"
             )
             .SetCdn(
                 "https://cdnjs.cloudflare.com/ajax/libs/noUiSlider/15.7.0/nouislider.min.css",
@@ -468,6 +526,8 @@ public sealed class ResourceManagementOptionsConfiguration
                 "sha384-ZRTsSqAkR2D5UR6P8ew9nDImNmAueqBx3QIljDVMucOjF3eVskkMIk50HUW239mY"
             )
             .SetVersion("15.7.0");
+
+        // CodeMirror
 
         manifest
             .DefineStyle("codemirror")
@@ -609,7 +669,7 @@ public sealed class ResourceManagementOptionsConfiguration
 
         manifest
             .DefineScript("codemirror-addon-hint-sql-hint")
-            .SetDependencies("codemirror-addon-hint-show-hint")
+            .SetDependencies("codemirror-mode-sql", "codemirror-addon-hint-show-hint")
             .SetUrl(
                 "~/OrchardCore.Resources/Scripts/codemirror/addon/hint/sql-hint.min.js",
                 "~/OrchardCore.Resources/Scripts/codemirror/addon/hint/sql-hint.js"
@@ -658,6 +718,7 @@ public sealed class ResourceManagementOptionsConfiguration
 
         manifest
             .DefineScript("codemirror-addon-selection-active-line")
+            .SetDependencies("codemirror")
             .SetUrl(
                 "~/OrchardCore.Resources/Scripts/codemirror/addon/selection/active-line.min.js",
                 "~/OrchardCore.Resources/Scripts/codemirror/addon/selection/active-line.js"
@@ -719,6 +780,7 @@ public sealed class ResourceManagementOptionsConfiguration
 
         manifest
             .DefineScript("codemirror-mode-sql")
+            .SetDependencies("codemirror", "codemirror-mode-javascript")
             .SetUrl(
                 "~/OrchardCore.Resources/Scripts/codemirror/mode/sql/sql.min.js",
                 "~/OrchardCore.Resources/Scripts/codemirror/mode/sql/sql.js"
@@ -743,11 +805,13 @@ public sealed class ResourceManagementOptionsConfiguration
             )
             .SetVersion(CodeMirrorVersion);
 
+        // Font Awesome
+
         manifest
             .DefineStyle("font-awesome")
             .SetUrl(
-                "~/OrchardCore.Resources/Styles/font-awesome.min.css",
-                "~/OrchardCore.Resources/Styles/font-awesome.css"
+                "~/OrchardCore.Resources/Vendor/fontawesome-4.7.0/css/font-awesome.min.css",
+                "~/OrchardCore.Resources/Vendor/fontawesome-4.7.0/css/font-awesome.css"
             )
             .SetCdn(
                 "https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css",
@@ -762,8 +826,8 @@ public sealed class ResourceManagementOptionsConfiguration
         manifest
             .DefineStyle("font-awesome")
             .SetUrl(
-                "~/OrchardCore.Resources/Vendor/fontawesome-free/css/all.min.css",
-                "~/OrchardCore.Resources/Vendor/fontawesome-free/css/all.css"
+                "~/OrchardCore.Resources/Vendor/fontawesome-free-5.15.4/css/all.min.css",
+                "~/OrchardCore.Resources/Vendor/fontawesome-free-5.15.4/css/all.css"
             )
             .SetCdn(
                 "https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.15.4/css/all.min.css",
@@ -777,6 +841,10 @@ public sealed class ResourceManagementOptionsConfiguration
 
         manifest
             .DefineScript("font-awesome")
+            .SetUrl(
+                "~/OrchardCore.Resources/Vendor/fontawesome-free-5.15.4/js/all.min.js",
+                "~/OrchardCore.Resources/Vendor/fontawesome-free-5.15.4/js/all.js"
+            )
             .SetCdn(
                 "https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.15.4/js/all.min.js",
                 "https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.15.4/js/all.js"
@@ -789,6 +857,10 @@ public sealed class ResourceManagementOptionsConfiguration
 
         manifest
             .DefineScript("font-awesome-v4-shims")
+            .SetUrl(
+                "~/OrchardCore.Resources/Vendor/fontawesome-free-5.15.4/js/v4-shims.min.js",
+                "~/OrchardCore.Resources/Vendor/fontawesome-free-5.15.4/js/v4-shims.js"
+            )
             .SetCdn(
                 "https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.15.4/js/v4-shims.min.js",
                 "https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.15.4/js/v4-shims.js"
@@ -850,8 +922,8 @@ public sealed class ResourceManagementOptionsConfiguration
         manifest
             .DefineStyle("font-awesome")
             .SetUrl(
-                "~/OrchardCore.Resources/Vendor/fontawesome-free/css/all.min.css",
-                "~/OrchardCore.Resources/Vendor/fontawesome-free/css/all.css"
+                "~/OrchardCore.Resources/Vendor/fontawesome-free-6.7.2/css/all.min.css",
+                "~/OrchardCore.Resources/Vendor/fontawesome-free-6.7.2/css/all.css"
             )
             .SetCdn(
                 "https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.7.2/css/all.min.css",
@@ -866,8 +938,8 @@ public sealed class ResourceManagementOptionsConfiguration
         manifest
             .DefineScript("font-awesome")
             .SetUrl(
-                "~/OrchardCore.Resources/Vendor/fontawesome-free/js/all.min.js",
-                "~/OrchardCore.Resources/Vendor/fontawesome-free/js/all.js"
+                "~/OrchardCore.Resources/Vendor/fontawesome-free-6.7.2/js/all.min.js",
+                "~/OrchardCore.Resources/Vendor/fontawesome-free-6.7.2/js/all.js"
             )
             .SetCdn(
                 "https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.7.2/js/all.min.js",
@@ -882,8 +954,8 @@ public sealed class ResourceManagementOptionsConfiguration
         manifest
             .DefineScript("font-awesome-v4-shims")
             .SetUrl(
-                "~/OrchardCore.Resources/Vendor/fontawesome-free/js/v4-shims.min.js",
-                "~/OrchardCore.Resources/Vendor/fontawesome-free/js/v4-shims.js"
+                "~/OrchardCore.Resources/Vendor/fontawesome-free-6.7.2/js/v4-shims.min.js",
+                "~/OrchardCore.Resources/Vendor/fontawesome-free-6.7.2/js/v4-shims.js"
             )
             .SetCdn(
                 "https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.7.2/js/v4-shims.min.js",
@@ -896,20 +968,71 @@ public sealed class ResourceManagementOptionsConfiguration
             .SetVersion("6.7.2");
 
         manifest
-            .DefineScript("jquery-resizable")
-            .SetDependencies("jQuery")
+            .DefineStyle("font-awesome")
             .SetUrl(
-                "~/OrchardCore.Resources/Scripts/jquery-resizable.min.js",
-                "~/OrchardCore.Resources/Scripts/jquery-resizable.js"
+                "~/OrchardCore.Resources/Vendor/fontawesome-free/css/all.min.css",
+                "~/OrchardCore.Resources/Vendor/fontawesome-free/css/all.css"
             )
             .SetCdn(
-                "https://cdn.jsdelivr.net/npm/jquery-resizable-dom@0.35.0/dist/jquery-resizable.min.js"
+                "https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.3.1/css/all.min.css",
+                "https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.3.1/css/all.css"
             )
             .SetCdnIntegrity(
-                "sha384-1LMjDEezsSgzlRgsyFIAvLW7FWSdFIHqBGjUa+ad5EqtK1FORC8XpTJ/pahxj5GB",
-                "sha384-0yk9X0IG0cXxuN9yTTkps/3TNNI9ZcaKKhh8dgqOEAWGXxIYS5xaY2as6b32Ov3P"
+                "sha384-qrALq7+6jBOZIQsNnT6xGkMDru64qD6uTlDra39xrt2SoXl4pO3FX6Roz/RpR/BS",
+                "sha384-7WvIYI4vLdL28Kb0e0uLmaY+AFg62zUFE8P4OgFsKy0m93wWgDxFmdtVTkKNTJi8"
             )
-            .SetVersion("0.35.0");
+            .SetVersion("7.3.1");
+
+        manifest
+            .DefineScript("font-awesome")
+            .SetUrl(
+                "~/OrchardCore.Resources/Vendor/fontawesome-free/js/all.min.js",
+                "~/OrchardCore.Resources/Vendor/fontawesome-free/js/all.js"
+            )
+            .SetCdn(
+                "https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.3.1/js/all.min.js",
+                "https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.3.1/js/all.js"
+            )
+            .SetCdnIntegrity(
+                "sha384-nUoGK97t7uWSCbMZY3w/oH8v2WJFAsPdz0qtcXgHwyCeTlyvTClTftOOsjZHfdhj",
+                "sha384-4+SVXdlnJDmvfRRvTEFA9eVgupOcAG0poSILAKGGF1p152/j12vspPqfsdkYvNaY"
+            )
+            .SetVersion("7.3.1");
+
+        manifest
+            .DefineScript("font-awesome-v4-shims")
+            .SetUrl(
+                "~/OrchardCore.Resources/Vendor/fontawesome-free/js/v4-shims.min.js",
+                "~/OrchardCore.Resources/Vendor/fontawesome-free/js/v4-shims.js"
+            )
+            .SetCdn(
+                "https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.3.1/js/v4-shims.min.js",
+                "https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.3.1/js/v4-shims.js"
+            )
+            .SetCdnIntegrity(
+                "sha384-1oLhR9aGDanSh3MjG+86RDzJFtyR6UWbUWrT9OYMaLkHqR7key1SQbzM6KD+L7ax",
+                "sha384-XskgpoBtmWfQht2OsayyakdecpD0uLTDP1b3gEEgqmvNQvb/f22g/EizjK6i5gz5"
+            )
+            .SetVersion("7.3.1");
+
+        manifest
+            .DefineScript("fontawesome-iconpicker")
+            .SetDependencies("jquery")
+            .SetUrl(
+                "~/OrchardCore.Resources/Scripts/fontawesome-iconpicker.min.js",
+                "~/OrchardCore.Resources/Scripts/fontawesome-iconpicker.js"
+            )
+            .SetCdn(
+                "https://cdnjs.cloudflare.com/ajax/libs/fontawesome-iconpicker/3.2.0/js/fontawesome-iconpicker.min.js",
+                "https://cdnjs.cloudflare.com/ajax/libs/fontawesome-iconpicker/3.2.0/js/fontawesome-iconpicker.js"
+            )
+            .SetCdnIntegrity(
+                "sha384-f79rMAyeEq3Bvj5Pjl48cYqpDhVyoQAJ+vrYoD0MMgTrv25Dy0RS1KDiRPeq8zkF",
+                "sha384-2EkuuraR//RiFSIZRE4gIPPt14JYXgrb4+TzsdwTdZZp5IC5vrZyL3yFLEF3aEp2"
+            )
+            .SetVersion("3.2.0");
+
+        // Trumbowyg
 
         manifest
             .DefineStyle("trumbowyg")
@@ -918,14 +1041,14 @@ public sealed class ResourceManagementOptionsConfiguration
                 "~/OrchardCore.Resources/Styles/trumbowyg/trumbowyg.css"
             )
             .SetCdn(
-                "https://cdn.jsdelivr.net/npm/trumbowyg@2.28.0/dist/ui/trumbowyg.min.css",
-                "https://cdn.jsdelivr.net/npm/trumbowyg@2.28.0/dist/ui/trumbowyg.css"
+                "https://cdn.jsdelivr.net/npm/trumbowyg@2.31.0/dist/ui/trumbowyg.min.css",
+                "https://cdn.jsdelivr.net/npm/trumbowyg@2.31.0/dist/ui/trumbowyg.css"
             )
             .SetCdnIntegrity(
-                "sha384-XfI6P0jtm0X3QDEQxS1DotzhIXkJeuSV1wtBOntPaRxzpzTkMWkpZpkuzj8qVHzl",
-                "sha384-GUyfWhYsIKKkAMejJuy50VTSfyfkrrJX2csg7fxJJt7vi+gXH8qxqH29C5GURaum"
+                "sha384-LqNrbFfMePpQMO6AvQziSnLgdzv/vMiSjDkui1MEXDoKDfMObOzIdGhi1Sl+fpEz",
+                "sha384-0dqCsxNlKfFss9fm46V6wbhiBDztFTUWF3gAzSCS6ZObUW/zWUgi9Z/NMqPrAZJX"
             )
-            .SetVersion("2.28.0");
+            .SetVersion("2.31.0");
 
         manifest
             .DefineScript("trumbowyg")
@@ -935,14 +1058,14 @@ public sealed class ResourceManagementOptionsConfiguration
                 "~/OrchardCore.Resources/Scripts/trumbowyg/trumbowyg.js"
             )
             .SetCdn(
-                "https://cdn.jsdelivr.net/npm/trumbowyg@2.28.0/dist/trumbowyg.min.js",
-                "https://cdn.jsdelivr.net/npm/trumbowyg@2.28.0/dist/trumbowyg.js"
+                "https://cdn.jsdelivr.net/npm/trumbowyg@2.31.0/dist/trumbowyg.min.js",
+                "https://cdn.jsdelivr.net/npm/trumbowyg@2.31.0/dist/trumbowyg.js"
             )
             .SetCdnIntegrity(
-                "sha384-O4OAGMDq5hnqt4/WQz+fW6yVgZ02jmw+Yf1j02zIgglnCYXf/7TmET8tFbrTN6u5",
-                "sha384-dNxlebCuuiNWPhPBEd69nEAtkEWa7Z9IWkrL+OSmJ456dlu6TAASXgL72Bn4GGju"
+                "sha384-l4+mVm18V4OOdz6MWO+OmyVods549M2rNdB/NAJkyPmPzuILPswXpFbMBJR9VtSm",
+                "sha384-40pW6SHEA5k9n7CwDgHLcTxfv/HcC3XRIjnLby5vA0tsRjwjWiHWOxS1L0nDvhvq"
             )
-            .SetVersion("2.28.0");
+            .SetVersion("2.31.0");
 
         manifest
             .DefineScript("trumbowyg-shortcodes")
@@ -980,6 +1103,8 @@ public sealed class ResourceManagementOptionsConfiguration
             )
             .SetVersion("2.28.0");
 
+        // Credential Helpers
+
         manifest
             .DefineScript("credential-helpers")
             .SetUrl(
@@ -988,21 +1113,33 @@ public sealed class ResourceManagementOptionsConfiguration
             )
             .SetVersion("1.0.0");
 
+        // List Management
+
+        manifest
+            .DefineScript("list-management")
+            .SetUrl(
+                "~/OrchardCore.Resources/Scripts/list-management.min.js",
+                "~/OrchardCore.Resources/Scripts/list-management.js"
+            )
+            .SetVersion("1.0.0");
+
+        // Vue.js 
+
         manifest
             .DefineScript("vuejs")
             .SetUrl(
-                "~/OrchardCore.Resources/Vendor/vue-2.6.14/vue.min.js",
-                "~/OrchardCore.Resources/Vendor/vue-2.6.14/vue.js"
+                "~/OrchardCore.Resources/Vendor/vue-2.7.16/vue.min.js",
+                "~/OrchardCore.Resources/Vendor/vue-2.7.16/vue.js"
             )
             .SetCdn(
-                "https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.min.js",
-                "https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.js"
+                "https://cdn.jsdelivr.net/npm/vue@2.7.16/dist/vue.min.js",
+                "https://cdn.jsdelivr.net/npm/vue@2.7.16/dist/vue.js"
             )
             .SetCdnIntegrity(
-                "sha384-ULpZhk1pvhc/UK5ktA9kwb2guy9ovNSTyxPNHANnA35YjBQgdwI+AhLkixDvdlw4",
-                "sha384-t1tHLsbM7bYMJCXlhr0//00jSs7ZhsAhxgm191xFsyzvieTMCbUWKMhFg9I6ci8q"
+                "sha384-YVYXhPGIH/Gmcr0W5Rin4PcpcsG1a4pcdUUod1CnbDEJut7XiUaJtSlNKeRLJBPk",
+                "sha384-smVS78N63G0uFpVH9bKdb+2YIW7Q9eFrle79imo+AWW6YLluQxAEK7kxLOt1bNex"
             )
-            .SetVersion("2.6.14");
+            .SetVersion("2.7.16");
 
         manifest
             .DefineScript("vuejs")
@@ -1015,8 +1152,8 @@ public sealed class ResourceManagementOptionsConfiguration
                 "https://cdn.jsdelivr.net/npm/vue@3.5.13/dist/vue.global.js"
             )
             .SetCdnIntegrity(
-                "sha256-xFm6fMjbZcmCWJ+l1kx/9HiHfo5bD9dWgyB87GpOieg=",
-                "sha256-Nw0E5oMsQLilVXzUCx00vxQTGV+x1C83EG8rUPawe8A="
+                "sha384-W/1Fp/LgAYO/oTn9Gs+PbeWuMuq1eQCnUMPCeg8POmMYchhzxctjEqtbiCIxDOON",
+                "sha384-G++pO/TtP6SeNEBuO/CYuppmlcEhA0Rj9IcY5feVJXhyYraEA8CKVZV38iDXLTyJ"
             )
             .SetVersion("3.5.13");
 
@@ -1050,8 +1187,8 @@ public sealed class ResourceManagementOptionsConfiguration
                 "https://cdn.jsdelivr.net/npm/vue-multiselect@3.2.0/dist/vue-multiselect.umd.js"
             )
             .SetCdnIntegrity(
-                "sha256-WPNu0JAREY1Irusgtihcuzati2fLtA70vyK1TDs55PY=",
-                "sha256-bgP1jhSlmX0vEY01VGFi6FMuUzU5Vbd1AdXKm9o0i4Q="
+                "sha384-7HofOP/3o+/jDuC4RmU64mOramSz9btGjs7S9tsRd4U6lerpHI0P1jEFjjvxIBi6",
+                "sha384-7EnWodE8EplOPsNbw/n7oUIXVb0xsbUhgfxnzJc+MGgbzzLpJwlA0OccVdY0EU/w"
             )
             .SetVersion("3.2.0");
 
@@ -1132,6 +1269,8 @@ public sealed class ResourceManagementOptionsConfiguration
             )
             .SetVersion("4.1.0");
 
+        // js-cookie
+
         manifest
             .DefineScript("js-cookie")
             .SetUrl(
@@ -1148,6 +1287,8 @@ public sealed class ResourceManagementOptionsConfiguration
             )
             .SetVersion("3.0.5");
 
+        // Monaco Editor
+
         manifest
             .DefineScript("monaco-loader")
             .SetUrl("~/OrchardCore.Resources/Scripts/monaco/vs/loader.js")
@@ -1160,57 +1301,6 @@ public sealed class ResourceManagementOptionsConfiguration
             .SetUrl("~/OrchardCore.Resources/Scripts/monaco/ocmonaco.js")
             .SetDependencies("monaco-loader")
             .SetVersion(MonacoEditorVersion);
-
-        manifest
-            .DefineScript("fontawesome-iconpicker")
-            .SetDependencies("jquery")
-            .SetUrl(
-                "~/OrchardCore.Resources/Scripts/fontawesome-iconpicker.min.js",
-                "~/OrchardCore.Resources/Scripts/fontawesome-iconpicker.js"
-            )
-            .SetCdn(
-                "https://cdnjs.cloudflare.com/ajax/libs/fontawesome-iconpicker/3.2.0/js/fontawesome-iconpicker.min.js",
-                "https://cdnjs.cloudflare.com/ajax/libs/fontawesome-iconpicker/3.2.0/js/fontawesome-iconpicker.js"
-            )
-            .SetCdnIntegrity(
-                "sha512-7dlzSK4Ulfm85ypS8/ya0xLf3NpXiML3s6HTLu4qDq7WiJWtLLyrXb9putdP3/1umwTmzIvhuu9EW7gHYSVtCQ==",
-                "sha512-ARPApqjym7fPaYMaezrx4XTD8mGd0JAvugmK2JDkjb/WTog2b33SwzcSlAnnwFTq9PiTas0U2VqCMzuhpzKREA=="
-            )
-            .SetVersion("3.2.0");
-
-        manifest
-            .DefineScript("jQuery-fileupload")
-            .SetDependencies("jQuery-ui")
-            .SetUrl(
-                "~/OrchardCore.Resources/Scripts/jquery.fileupload.min.js",
-                "~/OrchardCore.Resources/Scripts/jquery.fileupload.js"
-            )
-            .SetCdn(
-                "https://cdnjs.cloudflare.com/ajax/libs/blueimp-file-upload/10.32.0/js/jquery.fileupload.min.js",
-                "https://cdnjs.cloudflare.com/ajax/libs/blueimp-file-upload/10.32.0/js/jquery.fileupload.js"
-            )
-            .SetCdnIntegrity(
-                "sha384-t/a/G59hRbkwY9q4QtKeC8BJaq/iCa/XLqbU6//JWAIxECygr80ecZk1W/soXL1d",
-                "sha384-0kYSikha8p8NUXBb9/ZzkbnyTJ+q6uIYLDupH60G0s8ve9jFqDlCJGdOwEXOw9AF"
-            )
-            .SetVersion("10.32.0");
-
-        manifest
-            .DefineScript("jQuery-iframe-transport")
-            .SetDependencies("jQuery-fileupload")
-            .SetUrl(
-                "~/OrchardCore.Resources/Scripts/jquery.iframe-transport.min.js",
-                "~/OrchardCore.Resources/Scripts/jquery.iframe-transport.js"
-            )
-            .SetCdn(
-                "https://cdnjs.cloudflare.com/ajax/libs/blueimp-file-upload/10.32.0/js/jquery.iframe-transport.min.js",
-                "https://cdnjs.cloudflare.com/ajax/libs/blueimp-file-upload/10.32.0/js/jquery.iframe-transport.js"
-            )
-            .SetCdnIntegrity(
-                "sha384-RVSdJCLiwGZtzkZOWdlpY6AyDhmZHVAAx3bAbBlRxBIp1dD/MkkMOcbgWP9SgR8E",
-                "sha384-KcPleywUX7NFvy4q5aDI6viwF9nSWwDfABktBjWRuDEZA0TmoyNcwimFmKgNtXlC"
-            )
-            .SetVersion("10.32.0");
 
         return manifest;
     }

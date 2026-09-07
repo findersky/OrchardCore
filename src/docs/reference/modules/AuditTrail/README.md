@@ -28,7 +28,7 @@ Events provide various details on their line:
 
 ## Audit Trail Settings
 
-If you navigate to Configuration -> Settings -> Audit Trail, you will see various configuration options, depending on the enabled Audit Trail features:
+If you navigate to Settings -> Audit Trail, you will see various configuration options, depending on the enabled Audit Trail features:
 
 - A list that contains every event that you can record using the Audit Trail module. Here you can enable or disable the recording of the given events.
 - You can enable client IP address logging. When you enable this, the client IP address will be recorded in Audit Trail events. Note that depending on the legislation your site operates in, you need to take special care to collect and store such Personal Identifiable Information.
@@ -48,6 +48,53 @@ Orchard Core is built to be extended, and the Audit Trail module is no different
 <iframe width="560" height="315" src="https://www.youtube-nocookie.com/embed/ko0jEgQtXYc" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
 
 <iframe width="560" height="315" src="https://www.youtube-nocookie.com/embed/t28rnjYtlJc" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+
+## Recipe Configuration
+
+Audit trail settings can be configured using the `Settings` recipe step:
+
+```json
+{
+  "steps": [
+    {
+      "name": "settings",
+      "AuditTrailSettings": {
+        "ClientIpAddressAllowed": true,
+        "Categories": [
+          {
+            "Name": "Content",
+            "Events": [
+              {
+                "Name": "Published",
+                "Category": "Content",
+                "IsEnabled": true
+              }
+            ]
+          }
+        ]
+      },
+      "AuditTrailTrimmingSettings": {
+        "RetentionDays": 10,
+        "Disabled": false
+      }
+    }
+  ]
+}
+```
+
+### AuditTrailSettings
+
+| Property                 | Type    | Description                                                     |
+|--------------------------|---------|-----------------------------------------------------------------|
+| `ClientIpAddressAllowed` | Boolean | Whether to record the client IP address in audit trail entries. |
+| `Categories`             | Array   | The list of audit trail event category configurations.          |
+
+### AuditTrailTrimmingSettings
+
+| Property        | Type    | Description                                                                      |
+|-----------------|---------|----------------------------------------------------------------------------------|
+| `RetentionDays` | Integer | The number of days to retain audit trail entries before trimming. Default: `10`. |
+| `Disabled`      | Boolean | Whether automatic trimming is disabled.                                          |
 
 <iframe width="560" height="315" src="https://www.youtube-nocookie.com/embed/uMBN6TVhaMg" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
 

@@ -1,8 +1,9 @@
 using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Logging;
+using OrchardCore.Infrastructure;
 using OrchardCore.Modules;
 
-namespace OrchardCore.Email.Core.Services;
+namespace OrchardCore.Email.Services;
 
 public class DefaultEmailService : IEmailService
 {
@@ -24,41 +25,54 @@ public class DefaultEmailService : IEmailService
         S = stringLocalizer;
     }
 
-    public async Task<EmailResult> SendAsync(MailMessage message, string name = null)
+    /// <summary>
+    /// Sends the specified email message by using the selected provider or the default provider.
+    /// </summary>
+    /// <param name="message">The email message to send.</param>
+    /// <param name="providerName">The technical name of the email provider to use. When null or empty, the default provider is used.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>A <see cref="Result"/> describing whether the email was sent successfully.</returns>
+    public async Task<Result> SendAsync(MailMessage message, string providerName = null, CancellationToken cancellationToken = default)
     {
-        var provider = await _providerResolver.GetAsync(name);
+        var provider = await _providerResolver.GetAsync(providerName);
 
         if (provider is null)
         {
             _logger.LogError("Email settings must be configured before an Email message can be sent.");
 
-            return EmailResult.FailedResult(S["Email settings must be configured before an Email message can be sent."]);
+            return Result.Failed(S["Email settings must be configured before an Email message can be sent."]);
         }
 
         var validationContext = new MailMessageValidationContext(provider);
 
-        await _emailServiceEvents.InvokeAsync((e) => e.ValidatingAsync(message, validationContext), _logger);
+        await _emailServiceEvents.InvokeAsync((e, token) => e.ValidatingAsync(message, validationContext, token), cancellationToken, _logger);
 
-        await _emailServiceEvents.InvokeAsync((e) => e.ValidatedAsync(message, validationContext), _logger);
+        await _emailServiceEvents.InvokeAsync((e, token) => e.ValidatedAsync(message, validationContext, token), cancellationToken, _logger);
 
         if (validationContext.Errors.Count > 0)
         {
-            await _emailServiceEvents.InvokeAsync((e) => e.FailedAsync(message), _logger);
+            await _emailServiceEvents.InvokeAsync((e, token) => e.FailedAsync(message, token), cancellationToken, _logger);
 
-            return EmailResult.FailedResult(validationContext.Errors);
+            var resultErrors = validationContext.Errors.SelectMany(kvp => kvp.Value.Select(error => new ResultError
+            {
+                Key = kvp.Key,
+                Message = error,
+            }));
+
+            return Result.Failed(resultErrors);
         }
 
-        await _emailServiceEvents.InvokeAsync((e) => e.SendingAsync(message), _logger);
+        await _emailServiceEvents.InvokeAsync((e, token) => e.SendingAsync(message, token), cancellationToken, _logger);
 
-        var result = await provider.SendAsync(message);
+        var result = await provider.SendAsync(message, cancellationToken);
 
         if (result.Succeeded)
         {
-            await _emailServiceEvents.InvokeAsync((e) => e.SentAsync(message), _logger);
+            await _emailServiceEvents.InvokeAsync((e, token) => e.SentAsync(message, token), cancellationToken, _logger);
         }
         else
         {
-            await _emailServiceEvents.InvokeAsync((e) => e.FailedAsync(message), _logger);
+            await _emailServiceEvents.InvokeAsync((e, token) => e.FailedAsync(message, token), cancellationToken, _logger);
         }
 
         return result;

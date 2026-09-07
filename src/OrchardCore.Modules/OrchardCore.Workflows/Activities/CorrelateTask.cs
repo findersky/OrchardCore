@@ -39,21 +39,19 @@ public class CorrelateTask : TaskActivity<CorrelateTask>
     }
 
     public override IEnumerable<Outcome> GetPossibleOutcomes(WorkflowExecutionContext workflowContext, ActivityContext activityContext)
-    {
-        return Outcomes(S["Done"]);
-    }
+        => Outcome(S["Done"]);
 
     public override async Task<ActivityExecutionResult> ExecuteAsync(WorkflowExecutionContext workflowContext, ActivityContext activityContext)
     {
         var value = Syntax switch
         {
             WorkflowScriptSyntax.Liquid => await _expressionEvaluator.EvaluateAsync(Value, workflowContext, null),
-            WorkflowScriptSyntax.JavaScript => await _scriptEvaluator.EvaluateAsync(Value, workflowContext, null),
+            WorkflowScriptSyntax.JavaScript => await _scriptEvaluator.EvaluateAsync(Value, workflowContext),
             _ => throw new NotSupportedException($"The syntax {Syntax} isn't supported for CorrelateTask.")
         };
 
         workflowContext.CorrelationId = value?.Trim();
 
-        return Outcomes("Done");
+        return Outcome("Done");
     }
 }

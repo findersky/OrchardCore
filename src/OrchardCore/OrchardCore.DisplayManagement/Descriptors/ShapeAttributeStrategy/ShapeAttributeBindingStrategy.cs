@@ -43,15 +43,18 @@ public class ShapeAttributeBindingStrategy : ShapeTableProvider, IShapeTableHarv
             }
         }
 
-        foreach (var iter in shapeAttributeOccurrences)
+        foreach (var occurrence in shapeAttributeOccurrences)
         {
-            var occurrence = iter;
             var shapeType = occurrence.ShapeAttribute.ShapeType ?? occurrence.MethodInfo.Name;
-            builder.Describe(shapeType)
-                .From(_typeFeatureProvider.GetFeatureForDependency(occurrence.ServiceType))
-                .BoundAs(
-                    occurrence.MethodInfo.DeclaringType.FullName + "::" + occurrence.MethodInfo.Name,
-                    CreateDelegate(occurrence));
+            var bindingSource = occurrence.MethodInfo.DeclaringType.FullName + "::" + occurrence.MethodInfo.Name;
+            var bindingDelegate = CreateDelegate(occurrence);
+
+            foreach (var feature in _typeFeatureProvider.GetFeaturesForDependency(occurrence.ServiceType))
+            {
+                builder.Describe(shapeType)
+                    .From(feature)
+                    .BoundAs(bindingSource, bindingDelegate);
+            }
         }
 
         return ValueTask.CompletedTask;
@@ -75,7 +78,7 @@ public class ShapeAttributeBindingStrategy : ShapeTableProvider, IShapeTableHarv
         {
             action = (s, d) =>
             {
-                var arguments = new object[argumentBuilders.Length];
+                var arguments = argumentBuilders.Length > 0 ? new object[argumentBuilders.Length] : [];
                 for (var i = 0; i < arguments.Length; i++)
                 {
                     arguments[i] = argumentBuilders[i](d);
@@ -88,7 +91,7 @@ public class ShapeAttributeBindingStrategy : ShapeTableProvider, IShapeTableHarv
         {
             action = (s, d) =>
             {
-                var arguments = new object[argumentBuilders.Length];
+                var arguments = argumentBuilders.Length > 0 ? new object[argumentBuilders.Length] : [];
                 for (var i = 0; i < arguments.Length; i++)
                 {
                     arguments[i] = argumentBuilders[i](d);
@@ -101,7 +104,7 @@ public class ShapeAttributeBindingStrategy : ShapeTableProvider, IShapeTableHarv
         {
             action = (s, d) =>
             {
-                var arguments = new object[argumentBuilders.Length];
+                var arguments = argumentBuilders.Length > 0 ? new object[argumentBuilders.Length] : [];
                 for (var i = 0; i < arguments.Length; i++)
                 {
                     arguments[i] = argumentBuilders[i](d);
@@ -117,7 +120,13 @@ public class ShapeAttributeBindingStrategy : ShapeTableProvider, IShapeTableHarv
 
         return context =>
         {
-            var serviceInstance = context.ServiceProvider.GetService(attributeOccurrence.ServiceType);
+            object serviceInstance = null;
+
+            if (!methodInfo.IsStatic)
+            {
+                serviceInstance = context.ServiceProvider.GetService(attributeOccurrence.ServiceType);
+            }
+
             return action(serviceInstance, context);
         };
     }
@@ -129,18 +138,17 @@ public class ShapeAttributeBindingStrategy : ShapeTableProvider, IShapeTableHarv
         var targetExp = Expression.Parameter(typeof(object), "target");
         var castTargetExp = Expression.Convert(targetExp, type);
 
-
         LambdaExpression lambdaExp;
 
         if (method.ReturnType != typeof(void))
         {
-            var resultExp = Expression.Convert(Expression.Call(castTargetExp, method, paramsExps), typeof(object));
+            var resultExp = Expression.Convert(Expression.Call(method.IsStatic ? null : castTargetExp, method, paramsExps), typeof(object));
             lambdaExp = Expression.Lambda(resultExp, targetExp, argsExp);
         }
         else
         {
             var constExp = Expression.Constant(null, typeof(object));
-            var blockExp = Expression.Block(Expression.Call(castTargetExp, method, paramsExps), constExp);
+            var blockExp = Expression.Block(Expression.Call(method.IsStatic ? null : castTargetExp, method, paramsExps), constExp);
             lambdaExp = Expression.Lambda(blockExp, targetExp, argsExp);
         }
 

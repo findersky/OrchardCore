@@ -5,7 +5,6 @@ using OrchardCore.Azure.Email.Drivers;
 using OrchardCore.DisplayManagement.Handlers;
 using OrchardCore.Email.Azure.Models;
 using OrchardCore.Email.Azure.Services;
-using OrchardCore.Email.Core;
 using OrchardCore.Email.Services;
 using OrchardCore.Environment.Shell.Configuration;
 
@@ -22,6 +21,8 @@ public sealed class Startup
 
     public void ConfigureServices(IServiceCollection services)
     {
+        services.AddSignalOptionsChangeTokenSource<AzureEmailOptions>();
+
         services.AddTransient<IConfigureOptions<AzureEmailOptions>, AzureEmailOptionsConfiguration>();
 
         services.AddEmailProviderOptionsConfiguration<AzureEmailProviderOptionsConfigurations>()

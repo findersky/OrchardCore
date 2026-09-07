@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Localization;
+using OrchardCore.Infrastructure;
 
 namespace OrchardCore.Sms.Services;
 
@@ -17,15 +18,21 @@ public class SmsService : ISmsService
         S = stringLocalizer;
     }
 
-    public async Task<SmsResult> SendAsync(SmsMessage message)
+    /// <summary>
+    /// Sends the specified SMS message by using the configured default SMS provider.
+    /// </summary>
+    /// <param name="message">The SMS message to send.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>A <see cref="Result"/> describing whether the SMS was sent successfully.</returns>
+    public async Task<Result> SendAsync(SmsMessage message, CancellationToken cancellationToken = default)
     {
         _provider ??= await _smsProviderResolver.GetAsync();
 
         if (_provider is null)
         {
-            return SmsResult.Failed(S["SMS settings must be configured before an SMS message can be sent."]);
+            return Result.Failed(S["SMS settings must be configured before an SMS message can be sent."]);
         }
 
-        return await _provider.SendAsync(message);
+        return await _provider.SendAsync(message, cancellationToken);
     }
 }

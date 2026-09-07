@@ -2,6 +2,8 @@ using System.Text.Json.Nodes;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Options;
+using OrchardCore.FileStorage;
+using OrchardCore.Media.Services;
 using OrchardCore.Recipes.Models;
 using OrchardCore.Recipes.Services;
 
@@ -13,20 +15,23 @@ namespace OrchardCore.Media.Recipes;
 public sealed class MediaStep : NamedRecipeStepHandler
 {
     private readonly IMediaFileStore _mediaFileStore;
-    private readonly HashSet<string> _allowedFileExtensions;
+    private readonly FileCreationService _fileCreationService;
+    private readonly MediaOptions _mediaOptions;
     private readonly IHttpClientFactory _httpClientFactory;
 
     internal readonly IStringLocalizer S;
 
     public MediaStep(
         IMediaFileStore mediaFileStore,
+        FileCreationService fileCreationService,
         IOptions<MediaOptions> options,
         IHttpClientFactory httpClientFactory,
         IStringLocalizer<MediaStep> stringLocalizer)
         : base("media")
     {
         _mediaFileStore = mediaFileStore;
-        _allowedFileExtensions = options.Value.AllowedFileExtensions;
+        _fileCreationService = fileCreationService;
+        _mediaOptions = options.Value;
         _httpClientFactory = httpClientFactory;
         S = stringLocalizer;
     }
@@ -37,7 +42,7 @@ public sealed class MediaStep : NamedRecipeStepHandler
 
         foreach (var file in model.Files)
         {
-            if (!_allowedFileExtensions.Contains(Path.GetExtension(file.TargetPath), StringComparer.OrdinalIgnoreCase))
+            if (!_mediaOptions.IsFileExtensionAllowed(Path.GetExtension(file.TargetPath), hasAdditionalPermission: true))
             {
                 context.Errors.Add(S["File extension not allowed: '{0}'", file.TargetPath]);
 
@@ -72,7 +77,7 @@ public sealed class MediaStep : NamedRecipeStepHandler
 
                 if (stream != null)
                 {
-                    await _mediaFileStore.CreateFileFromStreamAsync(file.TargetPath, stream, true);
+                    await _mediaFileStore.CreateFileFromStreamAsync(_fileCreationService, file.TargetPath, stream, overwrite: true);
                 }
             }
             finally

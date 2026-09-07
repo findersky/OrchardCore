@@ -7,7 +7,7 @@ namespace OrchardCore.ReverseProxy;
 
 public sealed class AdminMenu : AdminNavigationProvider
 {
-    private static readonly RouteValueDictionary _routeValues = new()
+    private static readonly RouteValueDictionary s_routeValues = new()
     {
         { "area", "OrchardCore.Settings" },
         { "groupId", ReverseProxySettingsDisplayDriver.GroupId},
@@ -30,7 +30,7 @@ public sealed class AdminMenu : AdminNavigationProvider
                         .Add(S["Reverse Proxy"], S["Reverse Proxy"].PrefixPosition(), entry => entry
                         .AddClass("reverseproxy")
                         .Id("reverseproxy")
-                            .Action("Index", "Admin", _routeValues)
+                            .Action("Index", "Admin", s_routeValues)
                             .Permission(Permissions.ManageReverseProxySettings)
                             .LocalNav()
                         )
@@ -42,14 +42,12 @@ public sealed class AdminMenu : AdminNavigationProvider
 
         builder
             .Add(S["Settings"], settings => settings
-                .Add(S["Security"], S["Security"].PrefixPosition(), security => security
-                    .Add(S["Reverse Proxy"], S["Reverse Proxy"].PrefixPosition(), proxy => proxy
-                        .AddClass("reverseproxy")
-                        .Id("reverseproxy")
-                        .Action("Index", "Admin", _routeValues)
-                        .Permission(Permissions.ManageReverseProxySettings)
-                        .LocalNav()
-                    )
+                .Add(S["Reverse Proxy"], S["Reverse Proxy"].PrefixPosition(), proxy => proxy
+                    .AddClass("reverseproxy")
+                    .Id("reverseproxy")
+                    .Action("Index", "Admin", s_routeValues)
+                    .Permission(Permissions.ManageReverseProxySettings)
+                    .LocalNav()
                 )
             );
 

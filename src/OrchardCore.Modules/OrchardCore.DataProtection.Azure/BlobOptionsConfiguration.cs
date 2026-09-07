@@ -6,24 +6,26 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using OrchardCore.Environment.Shell;
 using OrchardCore.Environment.Shell.Configuration;
+using OrchardCore.Liquid.Abstractions;
 
 namespace OrchardCore.DataProtection.Azure;
 
 internal sealed class BlobOptionsConfiguration : IConfigureOptions<BlobOptions>
 {
-    private readonly FluidParser _fluidParser = new();
-
+    private readonly FluidParser _fluidParser;
     private readonly IShellConfiguration _configuration;
     private readonly ShellOptions _shellOptions;
     private readonly ShellSettings _shellSettings;
     private readonly ILogger _logger;
 
     public BlobOptionsConfiguration(
+        FluidParser fluidParser,
         IShellConfiguration configuration,
         IOptions<ShellOptions> shellOptions,
         ShellSettings shellSettings,
         ILogger<BlobOptionsConfiguration> logger)
     {
+        _fluidParser = fluidParser;
         _configuration = configuration;
         _shellOptions = shellOptions.Value;
         _shellSettings = shellSettings;
@@ -45,17 +47,10 @@ internal sealed class BlobOptionsConfiguration : IConfigureOptions<BlobOptions>
 
         try
         {
-            // Use Fluid directly as the service provider has not been built.
-            var templateOptions = new TemplateOptions();
-            templateOptions.MemberAccessStrategy.Register<ShellSettings>();
-            var templateContext = new TemplateContext(templateOptions);
-            templateContext.SetValue("ShellSettings", _shellSettings);
-
-            var template = _fluidParser.Parse(options.ContainerName);
-
             // Container name must be lowercase.
-            var containerName = template.Render(templateContext, NullEncoder.Default).ToLowerInvariant();
-            options.ContainerName = containerName.Replace("\r", string.Empty).Replace("\n", string.Empty);
+            options.ContainerName = new FluidOptionsParser<BlobOptions>(_fluidParser, _shellSettings)
+                .ParseAndFormat(options.ContainerName)
+                .ToLowerInvariant();
 
             if (_logger.IsEnabled(LogLevel.Debug))
             {
@@ -72,10 +67,16 @@ internal sealed class BlobOptionsConfiguration : IConfigureOptions<BlobOptions>
         {
             try
             {
-                _logger.LogDebug("Testing data protection container {ContainerName} existence", options.ContainerName);
+                if (_logger.IsEnabled(LogLevel.Debug))
+                {
+                    _logger.LogDebug("Testing data protection container {ContainerName} existence", options.ContainerName);
+                }
                 var blobContainer = new BlobContainerClient(options.ConnectionString, options.ContainerName);
                 var response = blobContainer.CreateIfNotExistsAsync(PublicAccessType.None).GetAwaiter().GetResult();
-                _logger.LogDebug("Data protection container {ContainerName} created.", options.ContainerName);
+                if (_logger.IsEnabled(LogLevel.Debug))
+                {
+                    _logger.LogDebug("Data protection container {ContainerName} created.", options.ContainerName);
+                }
             }
             catch (Exception e)
             {
@@ -103,16 +104,8 @@ internal sealed class BlobOptionsConfiguration : IConfigureOptions<BlobOptions>
 
         try
         {
-            // Use Fluid directly as the service provider has not been built.
-            var templateOptions = new TemplateOptions();
-            var templateContext = new TemplateContext(templateOptions);
-            templateOptions.MemberAccessStrategy.Register<ShellSettings>();
-            templateContext.SetValue("ShellSettings", _shellSettings);
-
-            var template = _fluidParser.Parse(options.BlobName);
-
-            var blobName = template.Render(templateContext, NullEncoder.Default);
-            options.BlobName = blobName.Replace("\r", string.Empty).Replace("\n", string.Empty);
+            options.BlobName = new FluidOptionsParser<BlobOptions>(_fluidParser, _shellSettings)
+                .ParseAndFormat(options.BlobName);
 
             if (_logger.IsEnabled(LogLevel.Debug))
             {

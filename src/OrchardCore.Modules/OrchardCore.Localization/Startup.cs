@@ -5,7 +5,9 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 using OrchardCore.Admin.Models;
 using OrchardCore.DisplayManagement.Handlers;
+using OrchardCore.Liquid;
 using OrchardCore.Localization.Drivers;
+using OrchardCore.Localization.Liquid.Filters;
 using OrchardCore.Localization.Models;
 using OrchardCore.Localization.Services;
 using OrchardCore.Modules;
@@ -34,6 +36,8 @@ public sealed class Startup : StartupBase
             AddDataAnnotationsPortableObjectLocalization();
 
         services.Replace(ServiceDescriptor.Singleton<ILocalizationFileLocationProvider, ModularPoFileLocationProvider>());
+
+        services.AddLiquidFilter<TransliterateFilter>("transliterate");
     }
 
     /// <inheritdocs />
@@ -48,6 +52,7 @@ public sealed class Startup : StartupBase
         var localizationOptions = serviceProvider.GetService<IOptions<RequestLocalizationOptions>>().Value;
 
         localizationOptions.CultureInfoUseUserOverride = !cultureOptions.IgnoreSystemSettings;
+        localizationOptions.FallBackToParentUICultures = localizationOptions.FallBackToParentCultures = localizationService.FallBackToParentCultures;
         localizationOptions
             .SetDefaultCulture(defaultCulture)
             .AddSupportedCultures(supportedCultures)
