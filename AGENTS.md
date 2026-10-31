@@ -286,6 +286,18 @@ The project uses:
 - Document each enum member individually when its behavior is relevant to users or downstream developers.
 - When XML documentation already exists, revise the existing block in place and keep `<param>` tags accurate and in signature order.
 
+### Translation Templates
+
+Each project commits a `.pot` translation template of its localized strings. Whenever a change adds, edits, moves or removes a localized string (`S["..."]`, `T["..."]`, `H["..."]`, `LocalizationSource.Create(...)`, a localized attribute, or a string in a Razor view or Liquid template), regenerate the templates and commit the `.pot` files that change:
+
+```bash
+dotnet build OrchardCore.slnx -p:UpdateLocalizationCatalogs=true
+```
+
+- Build the whole solution, not a single project: moving a string between projects changes the templates of both.
+- Regenerate after merging the base branch too, since strings merged from either side can leave a template out of date.
+- The `Localization` CI job runs the same build in Release and fails when a `.pot` file changes, so run it before pushing.
+
 ## Database Patterns
 
 ### YesSql Usage
@@ -514,9 +526,10 @@ public sealed class AdminMenu : AdminNavigationProvider
 2. Include unit tests for new functionality
 3. Update the canonical documentation page when adding or changing user-facing features, public APIs, configuration, stereotypes, or extension points, and keep the docs aligned with the shipped code and behavior
 4. Run asset build if modifying CSS/JS: `yarn build`
-5. Ensure all tests pass: `dotnet test`
-6. Link related GitHub issues using `Fixes #IssueId`
-7. Add release notes for significant changes in `src/docs/releases/`, but do not rely on release notes as the only documentation for a feature; release notes describe what changed, while the canonical docs describe the current behavior without transitional or versioned wording
+5. Regenerate the translation templates if localized strings changed: `dotnet build OrchardCore.slnx -p:UpdateLocalizationCatalogs=true` (see [Translation Templates](#translation-templates))
+6. Ensure all tests pass: `dotnet test`
+7. Link related GitHub issues using `Fixes #IssueId`
+8. Add release notes for significant changes in `src/docs/releases/`, but do not rely on release notes as the only documentation for a feature; release notes describe what changed, while the canonical docs describe the current behavior without transitional or versioned wording
 
 ## Useful Commands
 
@@ -583,6 +596,24 @@ This applies to admin-facing Razor edit views such as:
 </div>
 ```
 
+### Required fields
+
+Every field that is validated as required carries `ocat-label-required` on its label, next to `ocat-label`. A field is required when its editor rejects an empty value: a `[Required]` attribute on the bound property, a model error added by the driver, controller or validator when the value is null or empty, or an HTML `required` attribute. When you add or change such validation, update the label in the same change.
+
+- When the field is only required in some states, add the class conditionally, from the same condition as the validation: `class="ocat-label @(settings.Required ? "ocat-label-required" : null)"`, `@(Model.IsNew ? "ocat-label-required" : null)`.
+- When the row is only visible while the field is required, for example a section shown for one option, add the class unconditionally.
+- Don't mark a field whose empty value is accepted, even when it gets generated or defaulted (e.g. the Autoroute permalink), a read-only input, or a checkbox.
+
+```cshtml
+<div class="ocat-wrapper" asp-validation-class-for="Name">
+    <label asp-for="Name" class="ocat-label ocat-label-required">@T["Name"]</label>
+    <div class="ocat-end">
+        <input asp-for="Name" class="form-control" />
+        <span asp-validation-for="Name"></span>
+    </div>
+</div>
+```
+
 ### Limited-width field example (number inputs)
 
 ```cshtml
@@ -636,6 +667,7 @@ Use `ocat-end-offset` for alerts, notices, legends, and headings that belong to 
 - Legacy helper methods such as `@Orchard.GetWrapperClasses()` or `@Orchard.GetLimitedWidthWrapperClasses()`
 - Using `ocat-limited-wrapper` for text inputs, selects, paths, IDs, or other non-number fields unless the user explicitly requests compact width
 - Mixing `ocat-end` and `ocat-end-offset` in the same row; choose exactly one based on whether the row has a left-column label
+- A required field without `ocat-label-required` on its label, or an asterisk typed into the label text
 
 ## Admin Index View Conventions
 
